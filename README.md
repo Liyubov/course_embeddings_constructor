@@ -1,2 +1,3 @@
-# course_embeddings_constructor
-Course at the Constructor U on embeddings: from theory to practice. 
+# Course general description on embeddings 
+Course at the Constructor University on embeddings: from theory to practice. 
+
