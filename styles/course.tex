@@ -1,0 +1,73 @@
+% ---- Packages ----
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{lmodern}
+
+% ---- Beamer setup ----
+\usetheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{%
+  \hfill{\footnotesize\color{gray}\insertframenumber\,/\,\inserttotalframenumber\hspace{0.4cm}}\vspace{0.25cm}%
+}
+\setbeamersize{text margin left=0.7cm, text margin right=0.7cm}
+
+% ---- Colors ----
+\definecolor{accentred}{RGB}{204,51,51}
+\definecolor{darkgray}{RGB}{80,80,80}
+
+% ---- Beamer colors ----
+\setbeamercolor{background canvas}{bg=white}
+\setbeamercolor{normal text}{fg=black}
+\setbeamercolor{frametitle}{fg=black}
+\setbeamerfont{frametitle}{size=\large, series=\bfseries}
+\setbeamercolor{itemize item}{fg=accentred}
+\setbeamercolor{itemize subitem}{fg=accentred}
+\setbeamercolor{enumerate item}{fg=accentred}
+\setbeamercolor{block title}{fg=white, bg=accentred}
+\setbeamercolor{block body}{fg=black, bg=red!8}
+
+% ---- Frametitle with red underline ----
+\setbeamertemplate{frametitle}{%
+  \vspace{0.3cm}%
+  \insertframetitle\par%
+  \textcolor{accentred}{\rule{\textwidth}{1pt}}%
+  \vspace{-0.1cm}%
+}
+
+% ---- Convenience macros ----
+\newcommand{\includegraphicscenter}[2]{%
+  \begin{center}
+    \includegraphics[#1]{#2}
+  \end{center}%
+}
+
+\newcommand {\framedgraphic}[2] {
+    \begin{frame}{#1}
+        \begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{#2}
+        \end{center}
+    \end{frame}
+}
+
+% ---- Section interlude macro ----
+\newcommand{\sectionframe}[2][]{%
+  \begingroup
+  \setbeamercolor{background canvas}{bg=accentred}
+  \setbeamertemplate{footline}{}%
+  \begin{frame}[plain]
+    \color{white}
+    \vspace{2.0cm}
+    {\LARGE\bfseries\raggedright #2}
+    \ifx\relax#1\relax\else
+      \vspace{0.5cm}
+      {\normalsize\raggedright #1}
+    \fi
+  \end{frame}
+  \endgroup
+}
