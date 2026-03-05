@@ -186,7 +186,7 @@
       % Projection axis in w direction (45°)
       \draw[gray!40, thin] (-0.3,-0.3) -- (2.0,2.0);
       % x_i vector from origin
-      \draw[->, thick, darkgray] (0,0) -- (0.3,2.1);
+      \draw[->, thick, darkgray] (0,0) -- (0.3,2.05);
       \node[darkgray, left, font=\small] at (0.22,1.05) {$\vec{x}_i$};
       % Dashed perpendicular from x_i to foot
       \draw[dashed, gray!60, thin] (0.3,2.1) -- (1.2,1.2);
@@ -267,7 +267,7 @@
 \begin{frame}{A case study: handwritten digits}
   \begin{itemize}
       \item 130 hadwritten threes.
-      \item Each image is of $16\times 16 = 256$ pixels. Feature is a pixel's grayscale. 
+      \item Each image is of $16\times 16 = 256$ pixels. Feature is a pixel's grayscale value (0..255). 
   \end{itemize}
   \includegraphicscenter{height=0.65\textheight}{img/pca_threes_1.png}
 \end{frame}
