@@ -40,6 +40,46 @@
   \vspace{-0.1cm}%
 }
 
+% ---- Title metadata ----
+% \coursetitle{<name>}  – name of the course (shown above the lecture title)
+% Use standard Beamer commands for the rest:
+%   \title, \subtitle, \author, \date, \institute
+\newcommand{\coursetitle}[1]{\def\@coursetitle{#1}}
+\def\@coursetitle{}
+
+% ---- Title slide (\maketitle produces the full frame) ----
+\renewcommand{\maketitle}{%
+  \begin{frame}[plain]
+    \vspace{1.8cm}
+    \begin{center}
+      \ifx\@coursetitle\@empty\else
+        {\normalsize\color{darkgray} \@coursetitle}\\[0.5cm]%
+      \fi
+      {\LARGE\bfseries\inserttitle}\\[0.4cm]%
+      \textcolor{accentred}{\rule{0.65\textwidth}{1.5pt}}\\[0.4cm]%
+      \ifx\insertsubtitle\@empty
+        \vspace{0.6cm}%
+      \else
+        {\normalsize\insertsubtitle}\\[1.2cm]%
+      \fi
+      \ifx\insertauthor\@empty\else
+        {\small\insertauthor}\\[0.2cm]%
+      \fi
+      {\small%
+        \ifx\insertinstitute\@empty
+          \insertdate%
+        \else
+          \ifx\insertdate\@empty
+            \insertinstitute%
+          \else
+            \insertinstitute, \insertdate%
+          \fi
+        \fi
+      }%
+    \end{center}
+  \end{frame}%
+}
+
 % ---- Convenience macros ----
 \newcommand{\includegraphicscenter}[2]{%
   \begin{center}
