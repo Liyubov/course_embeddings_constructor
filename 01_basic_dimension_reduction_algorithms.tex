@@ -348,6 +348,95 @@
   where $\tau = 2wD$ is a tunable regularisation parameter.
 \end{frame}
 
+% ---- Local MDS worked example ----
+\begin{frame}{Local MDS: Worked Example --- Stress calculation ($K=2$, $w=1$, $D=3$)}
+  \begin{columns}[T]
+    \column{0.05\textwidth}
+    \column{0.45\textwidth}
+
+    {\small
+    \textbf{Points on unit semicircle:}\\[2pt]
+    $A=(-1,0)$,\enspace $B=\!\bigl(-\tfrac{1}{2},\tfrac{\sqrt{3}}{2}\bigr)$\\[1pt]
+    $C=\!\bigl(\tfrac{1}{2},\tfrac{\sqrt{3}}{2}\bigr)$,\enspace $D=(1,0)$
+    }
+
+    \vspace{0.3cm}
+    \begin{tikzpicture}[scale=1.85]
+      % Semicircle
+      \draw[gray, thick] (-1,0) arc(180:0:1);
+      % K=2 diagonal edges
+      \draw[accentred, thick] (-1,0) -- (0.5,0.866);
+      \draw[accentred, thick] (-0.5,0.866) -- (1,0);
+      % K=1 chain edges
+      \draw[accentred, very thick] (-1,0) -- (-0.5,0.866);
+      \draw[accentred, very thick] (-0.5,0.866) -- (0.5,0.866);
+      \draw[accentred, very thick] (0.5,0.866) -- (1,0);
+      \draw[gray!70, very thick, dashed] (-1,0) -- (1,0);
+      % Chain edge labels
+      \node[left=2pt,  font=\scriptsize, accentred] at (-0.5, 0.433) {$1$};
+      \node[above=2pt, font=\scriptsize, accentred] at (0,     0.776) {$1$};
+      \node[right=2pt, font=\scriptsize, accentred] at ( 0.5, 0.433) {$1$};
+      % Diagonal edge labels
+      \node[font=\scriptsize, accentred] at (-0.33, 0.54) {$\sqrt{3}$};
+      \node[font=\scriptsize, accentred] at ( 0.33, 0.54) {$\sqrt{3}$};
+      % Points
+      \fill (-1,    0    ) circle(2pt) node[above left=1pt,  font=\small] {$A$};
+      \fill (-0.5,  0.866) circle(2pt) node[above left=1pt,  font=\small] {$B$};
+      \fill ( 0.5,  0.866) circle(2pt) node[above right=1pt, font=\small] {$C$};
+      \fill ( 1,    0    ) circle(2pt) node[above right=1pt, font=\small] {$D$};
+      % Projection dashes to separate axis below
+      \draw[dashed, gray!65] (-1,   0    ) -- (-1,   -0.40);
+      \draw[dashed, gray!65] (-0.5, 0.866) -- (-0.5, -0.40);
+      \draw[dashed, gray!65] ( 0.5, 0.866) -- ( 0.5, -0.40);
+      \draw[dashed, gray!65] ( 1,   0    ) -- ( 1,   -0.40);
+      % Projection axis
+      \draw[->] (-1.25,-0.40) -- (1.25,-0.40);
+      % Tick marks
+      \foreach \x in {-1, -0.5, 0.5, 1}{
+        \draw (\x,-0.36) -- (\x,-0.44);
+      }
+      % Projected points
+      \fill (-1,   -0.40) circle(1.5pt);
+      \fill (-0.5, -0.40) circle(1.5pt);
+      \fill ( 0.5, -0.40) circle(1.5pt);
+      \fill ( 1,   -0.40) circle(1.5pt);
+      % z labels
+      \node[below=3pt, font=\scriptsize] at (-1,   -0.40) {$z_A$};
+      \node[below=3pt, font=\scriptsize] at (-0.5, -0.40) {$z_B$};
+      \node[below=3pt, font=\scriptsize] at ( 0.5, -0.40) {$z_C$};
+      \node[below=3pt, font=\scriptsize] at ( 1,   -0.40) {$z_D$};
+      % Distance annotations
+      \node[left=2pt, font=\scriptsize] at (-0.6, -0.55) {$\frac{1}{2}$};
+      \node[left=2pt, font=\scriptsize] at (0.15, -0.55) {$1$};
+      \node[left=2pt, font=\scriptsize] at (0.92, -0.55) {$\frac{1}{2}$};
+    \end{tikzpicture}
+
+
+    \column{0.50\textwidth}
+    \begin{center}
+    \begin{tabular}{@{}cccc@{}}
+      \toprule
+      Pair & $d_{ij}$ & $|z_i{-}z_j|$ & $\in \mathcal{N}$ \\
+      \midrule
+      $AB$ & $1$        & $1/2$ & \checkmark\\
+      $BC$ & $1$        & $1$   & \checkmark\\
+      $CD$ & $1$        & $1/2$ & \checkmark\\
+      $AC$ & $\sqrt{3}$ & $3/2$ & \checkmark\\
+      $BD$ & $\sqrt{3}$ & $3/2$ & \checkmark\\
+      $AD$ & $2$ & $2$ & $\times$\\
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.25cm}
+    $S_L = \frac{1}{4} + 0 + \frac{1}{4} + 2\cdot(\sqrt{3} - \frac{3}{2})^2 + 1\cdot (3-2)^2$
+
+    \[
+      \boxed{S_L \approx 1.608}
+    \]
+
+  \end{columns}
+\end{frame}
+
 \begin{frame}{ISOMAP}
   \begin{enumerate}
     \setlength{\itemsep}{0.4cm}
