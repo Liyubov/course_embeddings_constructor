@@ -1,0 +1,4 @@
+.venv
+*.nav
+*.synctex.gz
+*.snm
