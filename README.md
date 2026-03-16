@@ -11,7 +11,7 @@ Course at the Constructor University on embeddings: from theory to practice.
 - Lecture 5 (Liubov) UMAP
 - Lecture 6 (Vladimir) Markov model, HMM, applications in user behavior analysis
 
-# Criteria description 
+# Criteria for projects judgement  
 
 The criteria for the personal projects:
 - clarity of the results of the method applications to the dataset,
