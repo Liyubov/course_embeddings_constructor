@@ -1,0 +1,224 @@
+\documentclass[aspectratio=169,t]{beamer}
+
+\input{styles/course}
+
+\coursetitle{Course: Foundations of AI with Embeddings}
+\title{Lecture 3: SVD, NMF}
+\author{Liubov B.T., Vladimir Kukushkin}
+\institute{Constructor University}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+\sectionframe{1. Singular Value Decomposition (SVD)}
+
+\begin{frame}{Motivating problem: Recommender Systems}
+  A streaming platform knows which movies each user has watched and rated.\\[0.3cm]
+  \textbf{Goal:} predict missing ratings — recommend movies the user hasn't seen yet.
+  \vspace{0.3cm}
+  \begin{center}
+  \begin{tabular}{lcccccc}
+    \toprule
+    & \textit{Inception} & \textit{Titanic} & \textit{Alien} & \textit{La La Land} & \textit{Interstellar} \\
+    \midrule
+    Alice & 5 & 3 & 4 & 2 & \textcolor{accentred}{?} \\
+    Bob   & 4 & 1 & 5 & 1 & 5 \\
+    Carol & 2 & 5 & 1 & \textcolor{accentred}{?} & 2 \\
+    Dave  & \textcolor{accentred}{?} & 4 & 2 & 5 & 3 \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \vspace{0.3cm}
+  This is a \textbf{user–item matrix} $X \in \mathbb{R}^{N \times p}$, mostly \emph{sparse}: most entries are missing.
+\end{frame}
+
+\begin{frame}{Structure in the user--item matrix}
+  Users don't rate items independently — their preferences reflect \textbf{latent factors}:
+  genres, styles, directors, mood, \ldots
+  \vspace{0.3cm}
+  \begin{itemize}
+    \item Alice and Bob both like sci-fi $\Rightarrow$ their rows are correlated
+    \item Inception and Interstellar are both Nolan sci-fi $\Rightarrow$ their columns are correlated
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Key insight:} although $X$ is $N \times p$, the \emph{effective} degrees of freedom are much smaller — the matrix is approximately \emph{low-rank}.\\[0.3cm]
+  \begin{block}{Idea}
+    Find a low-rank approximation $X \approx \hat X$ and use $\hat X_{ij}$ to fill in the missing entries.
+  \end{block}
+\end{frame}
+
+\begin{frame}{SVD: Definition}
+  Any matrix $X \in \mathbb{R}^{N \times p}$ can be decomposed as
+  $$X = U \Sigma V^\top,$$
+  where
+  \begin{itemize}
+    \item $U \in \mathbb{R}^{N \times N}$ — orthogonal ($U^\top U = I$), columns $u_j$ are left singular vectors
+    \item $\Sigma \in \mathbb{R}^{N \times p}$ — diagonal matrix of singular values $\sigma_1 \geq \sigma_2 \geq \cdots \geq 0$
+    \item $V \in \mathbb{R}^{p \times p}$ — orthogonal ($V^\top V = I$), columns $v_j$ are right singular vectors
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}{From full SVD to truncated SVD}
+\vspace{0.1cm}
+\begin{center}
+\begin{tikzpicture}[scale=0.82]
+  \colorlet{kept}{accentred!20}
+  \colorlet{cut}{gray!15}
+
+  % ---- X ----
+  \draw[fill=blue!10] (0,0) rectangle (1.0,2.4);
+  \node at (0.5,1.2) {$X$};
+  \node[below] at (0.5,0) {\footnotesize$p$};
+  \node[left]  at (0,1.2) {\footnotesize$N$};
+
+  \node at (1.5,1.2) {$=$};
+
+  % ---- U: fills, then outer border only, then dashed cut ----
+  \fill[kept] (2.4,0) rectangle (3.1,2.4);
+  \fill[cut]  (3.1,0) rectangle (4.8,2.4);
+  \draw       (2.4,0) -- (4.8,0) -- (4.8,2.4) -- (2.4,2.4) -- cycle;
+  \draw[accentred, dashed, thick] (3.1,-0.3) -- (3.1,2.7);
+  \node at (2.75,1.2) {$U_q$};
+  \node at (3.95,1.2) {\color{gray}$\cdots$};
+  \node[below]           at (3.6,0)    {\footnotesize$N$};
+  \node[left]            at (2.4,1.2)  {\footnotesize$N$};
+  \node[above,accentred] at (2.75,2.4) {\footnotesize$q$};
+
+  \node at (5.7,1.2) {$\cdot$};
+
+  % ---- Sigma (N x p): top q rows kept (q x p), rest cut ----
+  \fill[kept] (6.6,1.7) rectangle (7.6,2.4);
+  \fill[cut]  (6.6,0.0) rectangle (7.6,1.7);
+  \draw       (6.6,0) -- (7.6,0) -- (7.6,2.4) -- (6.6,2.4) -- cycle;
+  \draw[accentred, dashed, thick] (6.3,1.7) -- (7.9,1.7);
+  \node at (7.1,2.05) {$\Sigma_q$};
+  \node at (7.1,0.85) {\color{gray}$0$};
+  \node[below]           at (7.1,0)    {\footnotesize$p$};
+  \node[left]            at (6.6,1.2)  {\footnotesize$N$};
+  \node[right,accentred] at (7.6,2.05) {\footnotesize$q$};
+
+  \node at (9.0,1.9) {$\cdot$};
+
+  % ---- V^T (p x p, square, top-aligned): fills, then outer border, then dashed cut ----
+  \fill[kept] (10.4,1.7) rectangle (11.4,2.4);
+  \fill[cut]  (10.4,1.4) rectangle (11.4,1.7);
+  \draw       (10.4,1.4) -- (11.4,1.4) -- (11.4,2.4) -- (10.4,2.4) -- cycle;
+  \draw[accentred, dashed, thick] (10.1,1.7) -- (11.7,1.7);
+  \node at (10.9,2.05) {$V_q^\top$};
+  \node at (10.9,1.55) {\color{gray}$\cdots$};
+  \node[below]           at (10.9,1.4)  {\footnotesize$p$};
+  \node[left]            at (10.4,1.9)  {\footnotesize$p$};
+  \node[right,accentred] at (11.4,2.05) {\footnotesize$q$};
+\end{tikzpicture}
+\end{center}
+\vspace{-0.1cm}
+The \textcolor{accentred}{dashed lines} show the cut: we keep only $q \ll \min(N,p)$ components.
+Coloured blocks multiply as $U_q\,[\,N{\times}q\,]\;\cdot\;\Sigma_q\,[\,q{\times}q\,]\;\cdot\;V_q^\top\,[\,q{\times}p\,]\;=\;\hat X\,[\,N{\times}p\,]$.
+\end{frame}
+
+\begin{frame}{Truncated SVD}
+  Keep only the top $q$ singular values — \textbf{best rank-$q$ approximation} (Eckart–Young theorem):
+  $$X \approx X_q = U_q \Sigma_q V_q^\top,$$
+  where $U_q \in \mathbb{R}^{N\times q}$, $\Sigma_q \in \mathbb{R}^{q\times q}$, $V_q \in \mathbb{R}^{p\times q}$.
+  \vspace{0.2cm}
+  \begin{block}{Eckart--Young theorem}
+    $X_q$ minimises $\|X - \hat X\|_F$ over all rank-$q$ matrices $\hat X$.
+  \end{block}
+  \vspace{0.2cm}
+  \begin{itemize}
+    \item Columns of $V_q$ are the same as principal components of PCA
+    \item $U_q \Sigma_q$ gives the low-dimensional embedding (scores)
+    \item Singular values $\sigma_k$ measure variance explained by each component
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{SVD vs PCA}
+  \begin{center}
+  \begin{tabular}{lll}
+    \toprule
+    & \textbf{PCA} & \textbf{SVD} \\
+    \midrule
+    Input      & centered $X$ & any $X$ \\
+    Decompose  & $X^\top X$ (covariance) & $X$ directly \\
+    Components & eigenvectors of $X^\top X$ & right singular vectors $V$ \\
+    Scores     & $XV$ & $U\Sigma$ \\
+    Numerics   & less stable & more stable \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \vspace{0.3cm}
+  PCA on centered $X$ $\equiv$ truncated SVD on centered $X$.
+\end{frame}
+
+\sectionframe{2. NMF decomposition}
+\begin{frame}{Idea}
+Assume $X \geq 0$. We want to find a decompositoin
+$$X_{N\times p} \approx W_{N\times q}H_{q\times p},$$
+where $w_{ik} \geq 0$, $h_{kj} \geq 0$.
+\begin{itemize}
+  \item Assume that $x_{ij} \sim Pois(\lambda_{ij})$, $\lambda_{ij}=(WH)_{ij}=\sum\limits_{k}w_{ik}h_{kj}$
+  \item Likelihood $l(W, H) = \prod\limits_{i,j} \frac{e^{-\lambda_{ij}} \lambda_{ij}^{x_{ij}}}{x_{ij}!}$
+  \item $\log l(W, H) = \underbrace{\sum\limits_{i,j} x_{ij}\log{\lambda_{ij}} - \lambda_{ij}}_{L(W, H)} - \log(x_{ij}!) \xrightarrow{w_{ij}, h_{ij}} \max$
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Optimization}
+$$L(W, H) = \sum\limits_{i,j} x_{ij}\log{\lambda_{ij} - \lambda_{ij}} \xrightarrow{w_{ij}, h_{ij}} \max$$
+\begin{itemize}
+  \item $\frac{\partial L}{\partial w_{ik}} = \sum\limits_{j} \left(\frac{x_{ij}}{\lambda_{ij}}\frac{\partial \lambda_{ij}}{\partial w_{ik}} - \frac{\partial \lambda_{ij}}{\partial w_{ik}}\right) = \underbrace{\sum\limits_{j} \frac{x_{ij}}{\lambda_{ij}}h_{kj}}_{A_{ik}} - \underbrace{\sum\limits_{j} h_{kj}}_{B_{ik}}$,
+  \item $\frac{\partial L}{\partial h_{kj}} = \sum\limits_{i} \left(\frac{x_{ij}}{\lambda_{ij}}\frac{\partial \lambda_{ij}}{\partial h_{kj}} - \frac{\partial \lambda_{ij}}{\partial h_{kj}}\right) = \sum\limits_{i} \frac{x_{ij}}{\lambda_{ij}} w_{ik} - \sum\limits_{i}w_{ik}$
+  \item Due to $w_{ik}\geq 0, h_{kj}\geq 0$ we cannot simply use gradient descent.
+  \item Lee and Seung 2001: 
+\end{itemize}
+$$w_{ik} \leftarrow w_{ik}\frac{A_{ik}}{B_{ik}} = \frac{\sum_{j} h_{kj}x_{ij} / (WH)_{ij}}{\sum_{j} h_{kj}}$$
+$$h_{kj} \leftarrow w_{ik}\frac{C_{kj}}{D_{kj}} = \frac{\sum_{i} w_{ik}x_{ij} / (WH)_{ij}}{\sum_{i} w_{ik}}$$
+\end{frame}
+
+\begin{frame}{Interpretation of $W$ and $H$: text example}
+$X$ -- bag-of-words text documents representation, $q=2$ topics.
+
+\begin{center}
+$H_{q\times p}$ -- \textbf{topics} (rows = components over words)\\[0.15cm]
+\begin{tabular}{lccccc}
+  \toprule
+  & \textit{matrix} & \textit{vector} & \textit{neural} & \textit{network} & \textit{data} \\
+  \midrule
+  topic 1 & 0.8 & 0.6 & 0.0 & 0.0 & 0.3 \\
+  topic 2 & 0.0 & 0.0 & 0.7 & 0.9 & 0.3 \\
+  \bottomrule
+\end{tabular}
+
+\vspace{0.5cm}
+
+$W_{N\times q}$ -- \textbf{documents} (mixture of topics)\\[0.15cm]
+\begin{tabular}{lcc}
+  \toprule
+  & \textit{topic 1} & \textit{topic 2} \\
+  \midrule
+  doc 1 & 1.2 & 0.0 \\
+  doc 2 & 0.0 & 1.5 \\
+  \textcolor{accentred}{doc 3} & \textcolor{accentred}{0.7} & \textcolor{accentred}{0.8} \\
+  \bottomrule
+\end{tabular}
+
+\end{center}
+\end{frame}
+
+\begin{frame}{References}
+  \begin{thebibliography}{9}
+    \bibitem{ESL}
+      T.~Hastie, R.~Tibshirani, J.~Friedman.
+      \textit{The Elements of Statistical Learning}.
+      Springer, 2nd ed., 2009.
+
+    \bibitem{LeeSeung2001}
+      D.~D.~Lee, H.~S.~Seung.
+      Algorithms for Non-negative Matrix Factorization.
+      \textit{Advances in Neural Information Processing Systems (NIPS)}, 2001.
+  \end{thebibliography}
+\end{frame}
+
+\end{document}
