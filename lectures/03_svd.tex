@@ -1,0 +1,472 @@
+\documentclass[aspectratio=169,t]{beamer}
+
+\input{styles/course}
+\usetikzlibrary{decorations.pathreplacing}
+\usepackage{colortbl}
+
+\coursetitle{Course: Foundations of AI with Embeddings}
+\title{Lecture 3: Recommender Systems}
+\subtitle{Collaborative filtering \enspace$\cdot$\enspace SVD \enspace$\cdot$\enspace Funk SVD \enspace$\cdot$\enspace NMF}
+\author{Liubov B.T., Vladimir Kukushkin}
+\institute{Constructor University}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{Motivating problem: Recommender Systems}
+  A streaming platform has $N$ users and $p$ movies. We want to predict how many stars user $i$ would give movie $j$.
+
+  \vspace{0.3cm}
+  \textbf{Straightforward ML approach:}
+  \begin{itemize}
+    \item Get \emph{user features}: age, country, watch history, \ldots
+    \item Get \emph{movie features}: genre, director, cast, year, \ldots
+    \item Train a regression model: $\hat{x}_{ij} = f(\text{user}_i,\, \text{movie}_j)$
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Problem:} feature engineering is expensive; many relevant factors are latent and hard to capture explicitly.
+\end{frame}
+
+\sectionframe{1. Collaborative filtering}
+
+\begin{frame}{User--item matrix}
+  Collect all known ratings into a matrix $X \in \mathbb{R}^{N \times p}$:
+  \vspace{0.2cm}
+  \begin{center}
+  \begin{tabular}{lcccccc}
+    \toprule
+    & \textit{Inception} & \textit{Titanic} & \textit{Alien} & \textit{La La Land} & \textit{Interstellar} \\
+    \midrule
+    Alice & 5 & 3 & 4 & 2 & \textcolor{accentred}{?} \\
+    Bob   & 4 & 1 & 5 & 1 & 5 \\
+    Carol & \textcolor{accentred}{?} & 5 & 1 & \textcolor{accentred}{?} & 2 \\
+    Dave  & \textcolor{accentred}{?} & 4 & 2 & 5 & 3 \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \vspace{0.2cm}
+  Most entries are \emph{missing} — a typical user has rated $\ll 1\%$ of all movies.\\[0.2cm]
+  \textbf{Goal:} fill in the \textcolor{accentred}{?} entries.
+\end{frame}
+
+\begin{frame}{Collaborative filtering}
+  \textbf{Core idea:} users who agreed in the past will agree in the future.\\[0.25cm]
+
+  \textbf{User-based CF.} To predict $x_{ij}$:
+  \begin{enumerate}
+    \item Find users most \emph{similar} to user $i$ (by their rating vectors)
+    \item Predict $\hat x_{ij}$ as a weighted average of their ratings of movie $j$
+  \end{enumerate}
+
+  \textbf{Item-based CF.} Symmetrically -- find movies similar to movie $j$, average over user $i$'s ratings of those movies.\\[0.2cm]
+
+  \textbf{Similarity} (e.g.\ cosine over shared ratings):
+  $$\operatorname{sim}(i,i') = \frac{\displaystyle\sum_{j \in \Omega_i \cap \Omega_{i'}} x_{ij}\,x_{i'j}}
+      {\sqrt{\displaystyle\sum_j x_{ij}^2}\;\sqrt{\displaystyle\sum_j x_{i'j}^2}}.$$
+
+  \textbf{Conditions}: $K$ nearest neighbours, $|\Omega_i \cap \Omega_{i'}| \geq M$. 
+\end{frame}
+
+\begin{frame}{Collaborative filtering: example}
+  \textbf{Task:} predict Alice's rating for \textit{Interstellar} using $K=2$, $M=3$.\\[0.1cm]
+  \textbf{Step 1:} compute cosine similarity with Alice over commonly rated movies.
+
+  \vspace{0.12cm}
+  \begin{center}
+  \begin{tabular}{lcccccc}
+    \toprule
+    & \textit{Inception} & \textit{Titanic} & \textit{Alien} & \textit{La La Land} & \textit{Interstellar} & $\operatorname{sim}(\cdot,\text{Alice})$ \\
+    \midrule
+    \cellcolor{blue!12}Alice & \cellcolor{blue!12}5 & \cellcolor{blue!12}3 & \cellcolor{blue!12}4 & \cellcolor{blue!12}2 & \cellcolor{accentred!25}\textbf{?} & \cellcolor{blue!12}-- \\
+    \cellcolor{green!15}Bob   & \cellcolor{green!15}4 & \cellcolor{green!15}1 & \cellcolor{green!15}5 & \cellcolor{green!15}1 & \cellcolor{green!15}\textbf{5} & \cellcolor{green!15}\textbf{0.93} \\
+    Carol & -- & 5 & 1 & -- & 2 & -- \\
+    \cellcolor{green!7}Dave  & \cellcolor{green!7}{--} & \cellcolor{green!7}4 & \cellcolor{green!7}2 & \cellcolor{green!7}5 & \cellcolor{green!7}\textbf{3} & \cellcolor{green!7}\textbf{0.83} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.1cm}
+  \textbf{Step 2:} weighted average over $K=2$ nearest neighbours (Bob, Dave):
+  $$\hat{x}_{\text{Alice,\,Interstellar}}
+    = \frac{0.93 \times 5 + 0.83 \times 3}{0.93 + 0.83}
+    = \frac{7.14}{1.76} \approx 4.1\text{ stars}.$$
+\end{frame}
+
+\begin{frame}{Problems}
+  \begin{itemize}
+    \item \emph{Cold start} -- new users/items have no history.
+    \item \emph{Scalability} -- pairwise similarity over millions of users is expensive.
+    \item \emph{Sparsity} -- two users may share very few co-rated movies.
+    \item \emph{Cosine similarity}: $\{1, 2\}$ is the same as $\{2, 4\}$.
+  \end{itemize}
+\end{frame}
+
+\sectionframe{2. Singular Value Decomposition (SVD)}
+
+\begin{frame}{SVD: Definition}
+  Any matrix $X \in \mathbb{R}^{N \times p}$ can be decomposed as
+  $$X = U D V^\top,$$
+  where
+  \begin{itemize}
+    \item $U \in \mathbb{R}^{N \times N}$ -- orthogonal ($U^\top U = I$), columns $u_j$ are left singular vectors
+    \item $D \in \mathbb{R}^{N \times p}$ -- diagonal matrix of singular values $d_1 \geq d_2 \geq \cdots \geq 0$
+    \item $V \in \mathbb{R}^{p \times p}$ -- orthogonal ($V^\top V = I$), columns $v_j$ are right singular vectors
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[shrink=5]{Full SVD and thin SVD}
+\vspace{0.1cm}
+\begin{center}
+\begin{tikzpicture}[scale=0.85]
+
+  \node[anchor=east, font=\small\bfseries] at (-0.7,1.2) {Full SVD: };
+
+  % ----- X -----
+  \draw[fill=blue!8] (0,0) rectangle (1.0,2.4);
+  \node at (0.5,1.2) {$X$};
+  \node[below] at (0.5,0) {\footnotesize$p$};
+  \node[left]  at (0,1.2) {\footnotesize$N$};
+
+  \node at (1.7,1.2) {$=$};
+
+  % ----- U: N x N -----
+  \draw (2.8,0) rectangle (5.2,2.4);
+  \node at (4.0,1.2) {$U$};
+  \node[below] at (4.0,0) {\footnotesize$N$};
+  \node[left]  at (2.8,1.2) {\footnotesize$N$};
+
+  \node at (5.9,1.2) {$\cdot$};
+
+  % ----- Sigma: N x p, diagonal block above, zeros below -----
+  \fill[gray!15] (7.0,0.0) rectangle (8.0,1.4);
+  \fill[white]   (7.0,1.4) rectangle (8.0,2.4);
+  \draw          (7.0,0) rectangle (8.0,2.4);
+  \draw[gray, densely dashed] (6.9,1.4) -- (8.1,1.4);
+  \node[font=\small] at (7.20,2.22) {$d_1$};
+  \node[font=\small] at (7.50,1.92) {$d_2$};
+  \node[font=\small] at (7.80,1.62) {$\ddots$};
+  \node[gray] at (7.5,0.65) {$\mathbf{0}$};
+  \node[below] at (7.5,0)   {\footnotesize$p$};
+  \node[left]  at (7.0,1.2) {\footnotesize$N$};
+
+  \node at (8.9,1.2) {$\cdot$};
+
+  % ----- V^T: p x p, vertically centred -----
+  \draw (9.8,0.7) rectangle (10.8,1.7);
+  \node at (10.3,1.2) {$V^\top$};
+  \node[below] at (10.3,0.7) {\footnotesize$p$};
+  \node[left]  at (9.8,1.2) {\footnotesize$p$};
+
+\end{tikzpicture}
+
+\vspace{0.35cm}
+\begin{tikzpicture}[scale=0.85]
+
+  \node[anchor=east, font=\small\bfseries] at (-0.7,1.2) {Thin SVD: };
+
+  % ----- X -----
+  \draw[fill=blue!8] (0,0) rectangle (1.0,2.4);
+  \node at (0.5,1.2) {$X$};
+  \node[below] at (0.5,0) {\footnotesize$p$};
+  \node[left]  at (0,1.2) {\footnotesize$N$};
+
+  \node at (1.7,1.2) {$=$};
+
+  % ----- U: N x p (tall, narrow), centred under full U -----
+  \draw (3.5,0) rectangle (4.5,2.4);
+  \node at (4.0,1.2) {$U$};
+  \node[below] at (4.0,0) {\footnotesize$p$};
+  \node[left]  at (3.5,1.2) {\footnotesize$N$};
+
+  \node at (5.9,1.2) {$\cdot$};
+
+  % ----- Sigma: p x p square, centred under full Sigma -----
+  \draw (7.0,0.7) rectangle (8.0,1.7);
+  \node[font=\small] at (7.20,1.58) {$d_1$};
+  \node[font=\small] at (7.50,1.30) {$d_2$};
+  \node[font=\small] at (7.80,1.02) {$\ddots$};
+  \node[below] at (7.5,0.7) {\footnotesize$p$};
+  \node[left]  at (7.0,1.2) {\footnotesize$p$};
+
+  \node at (8.9,1.2) {$\cdot$};
+
+  % ----- V^T: p x p square, centred under full V^T -----
+  \draw (9.8,0.7) rectangle (10.8,1.7);
+  \node at (10.3,1.2) {$V^\top$};
+  \node[below] at (10.3,0.7) {\footnotesize$p$};
+  \node[left]  at (9.8,1.2) {\footnotesize$p$};
+
+\end{tikzpicture}
+
+\end{center}
+\end{frame}
+
+\begin{frame}{Truncated SVD}
+\vspace{0.1cm}
+\begin{center}
+\begin{tikzpicture}[scale=0.82]
+  \colorlet{kept}{accentred!20}
+  \colorlet{cut}{gray!15}
+
+  % ---- X ----
+  \draw[fill=blue!10] (0,0) rectangle (1.5,2.4);
+  \node at (0.75,1.2) {$X$};
+  \node[below] at (0.75,0) {\footnotesize$p$};
+  \node[left]  at (0,1.2) {\footnotesize$N$};
+
+  \node at (2.0,1.2) {$\approx$};
+
+  % ---- U: N x p rectangle (p=1.5), cut vertically at q=0.7 ----
+  \fill[kept] (2.9,0) rectangle (3.6,2.4);
+  \fill[cut]  (3.6,0) rectangle (4.4,2.4);
+  \draw       (2.9,0) rectangle (4.4,2.4);
+  \draw[accentred, dashed, thick] (3.6,-0.3) -- (3.6,2.7);
+  \node at (3.25,1.2) {$U_q$};
+  \node at (4.0,1.2)  {\color{gray}$\cdots$};
+  \node[below]           at (3.8,0)   {\footnotesize$p$};
+  \node[left]            at (2.9,1.2)  {\footnotesize$N$};
+  \node[above,accentred] at (3.25,2.4) {\footnotesize$q$};
+
+  \node at (5.05,1.2) {$\cdot$};
+
+  % ---- Sigma: p x p square (1.5x1.5, centred at y=1.2), cut to q x q ----
+  \fill[kept] (5.7,1.25) rectangle (6.4,1.95);
+  \fill[cut]  (6.4,1.25) rectangle (7.2,1.95);
+  \fill[cut]  (5.7,0.45) rectangle (7.2,1.25);
+  \draw       (5.7,0.45) rectangle (7.2,1.95);
+  \draw[accentred, dashed, thick] (5.5,1.25) -- (7.4,1.25);
+  \draw[accentred, dashed, thick] (6.4,0.25) -- (6.4,2.15);
+  \node at (6.05,1.60)  {$D_q$};
+  \node at (6.80,1.60)  {\color{gray}$\cdots$};
+  \node[below]           at (6.6,0.45)  {\footnotesize$p$};
+  \node[left]            at (5.7,1.2)    {\footnotesize$p$};
+  \node[above,accentred] at (6.05,1.95)  {\footnotesize$q$};
+
+  \node at (7.9,1.2) {$\cdot$};
+
+  % ---- V^T: p x p square (1.5x1.5, centred at y=1.2), top q rows kept ----
+  \fill[kept] (8.6,1.25) rectangle (10.1,1.95);
+  \fill[cut]  (8.6,0.45) rectangle (10.1,1.25);
+  \draw       (8.6,0.45) rectangle (10.1,1.95);
+  \draw[accentred, dashed, thick] (8.4,1.25) -- (10.3,1.25);
+  \node at (9.35,1.60)  {$V_q^\top$};
+  \node at (9.35,0.85)  {\color{gray}$\cdots$};
+  \node[below]           at (9.35,0.45)  {\footnotesize$p$};
+  \node[left]            at (8.6,1.2)    {\footnotesize$p$};
+  \node[right,accentred] at (10.1,1.60)  {\footnotesize$q$};
+\end{tikzpicture}
+\end{center}
+\vspace{-0.1cm}
+We keep only $q < p$ components.
+\end{frame}
+
+\begin{frame}{Truncated SVD}
+  Keep only the top $q$ singular values -- \textbf{best rank-$q$ approximation} (Eckart–Young theorem):
+  $$X \approx X_q = U_q D_q V_q^\top,$$
+  where $U_q \in \mathbb{R}^{N\times q}$, $D_q \in \mathbb{R}^{q\times q}$, $V_q \in \mathbb{R}^{p\times q}$.
+  \vspace{0.2cm}
+  \begin{block}{Eckart--Young theorem}
+    $X_q$ minimises $\|X - \hat X\|_F$ over all rank-$q$ matrices $\hat X$.
+  \end{block}
+  \vspace{0.2cm}
+  \begin{itemize}
+    \item Columns of $V_q$ are the same as principal components of PCA
+    \item $U_q D_q$ gives the low-dimensional embedding
+    \item Singular values $d_k$ measure variance explained by each component
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{SVD and PCA: why $V$ gives principal components}
+  \textbf{PCA objective.} Given centred $X \in \mathbb{R}^{N\times p}$, find unit vector $v$ maximising the variance of projections $Xv$:
+  $$\max_{\|v\|=1}\ \frac{\|Xv\|^2}{N} = \max_{\|v\|=1}\ v^\top \Sigma\, v,\qquad \Sigma = \frac{X^\top X}{N}.$$
+
+  \begin{itemize}
+    \item Lagrangian $\mathcal{L}=v^\top \Sigma v - \lambda(v^\top v-1)$ $\implies$ $\frac{\partial \mathcal{L}}{\partial v} = 2\Sigma v - 2\lambda v = 0$ gives $\Sigma v = \lambda v$.
+    \item $v$ must be an \emph{eigenvector} of $\Sigma$.
+    \item The variance equals $v^\top \Sigma v = \lambda$, which is maximised by the eigenvector with the \emph{largest eigenvalue}.
+  \end{itemize}
+
+  \vspace{0.2cm}
+  \textbf{Connection to SVD.} For thin SVD $X = UDV^\top$ (centred $X$):
+  $$X^\top X V = VD U^\top UDV^\top V= VD^2$$
+  so columns of $V$ are eigenvectors of $N\Sigma$ (principal directions)
+\end{frame}
+
+
+\begin{frame}{Matrix factorisation: interpretation}
+  Decompose $X \approx PQ^\top$, $q=2$ latent factors — interpreted as \textbf{genres}.
+
+  \vspace{0.2cm}
+  \begin{columns}[T]
+    \begin{column}{0.44\textwidth}
+      $P_{N\times 2}$ — \textbf{user taste profile}\\[0.15cm]
+      \begin{tabular}{lcc}
+        \toprule
+        & \textit{sci-fi} & \textit{romance} \\
+        \midrule
+        Alice & 1.2 & 0.1 \\
+        Bob   & 1.5 & 0.0 \\
+        Carol & 0.1 & 1.3 \\
+        Dave  & 0.2 & 1.4 \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      $Q_{p\times 2}$ — \textbf{movie genre profile}\\[0.15cm]
+      \begin{tabular}{lcc}
+        \toprule
+        & \textit{sci-fi} & \textit{romance} \\
+        \midrule
+        Inception    & 1.3 & 0.0 \\
+        Titanic      & 0.0 & 1.5 \\
+        Alien        & 1.4 & 0.1 \\
+        La La Land   & 0.0 & 1.2 \\
+        Interstellar & 1.1 & 0.2 \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.3cm}
+  \textbf{Prediction:} $\hat x_{ij} = p_i^\top q_j$ — dot product of user taste and movie profile.\\[0.15cm]
+  E.g.\ Alice $\times$ Interstellar: $1.2 \cdot 1.1 + 0.1 \cdot 0.2 = 1.34$.
+
+  \vspace{0.15cm}
+  \textbf{Key point:} the latent factors are \emph{not} given — they are \emph{learned from data}.\\
+  The labels ``sci-fi'', ``romance'' are our human interpretation after the fact.
+\end{frame}
+
+\sectionframe{3. Funk SVD}
+
+\begin{frame}{SVD and sparse matrices}
+  \begin{itemize}
+    \item Problem: the user–item matrix $X$ is \emph{sparse}; a typical user rates $\ll 1\%$ of all items.
+    \item Naive fix: impute missing values (global mean, or user/item mean), then apply SVD.
+    \item Practical approach:
+    \begin{itemize}
+      \item $p_i$ and $q_j$ are the user and item "profiles",
+      \item Prediction: $\hat x_{ij} = p_i^\top q_j$,
+      \item Optimise only on observed entries $\Omega$.
+    \end{itemize}
+  \end{itemize}
+  \vspace{0.2cm}
+
+  Find low-rank factors $P \in \mathbb{R}^{N\times q}$, $Q \in \mathbb{R}^{p\times q}$ minimising
+  $$\min_{P,\,Q}\ \sum_{(i,j)\in\Omega} \bigl(x_{ij} - p_i^\top q_j\bigr)^2 + \lambda\!\left(\|P\|_F^2 + \|Q\|_F^2\right).$$
+\end{frame}
+
+\begin{frame}{SGD for matrix factorisation}
+  For each observed entry $(i,j)\in\Omega$ define the residual and per-entry loss:
+  $$e_{ij} = x_{ij} - p_i^\top q_j, \qquad \ell_{ij} = e_{ij}^2 + \lambda(\|p_i\|^2 + \|q_j\|^2).$$
+  \textbf{Gradients:}
+  $$\frac{\partial \ell_{ij}}{\partial p_i} = -2e_{ij}\,q_j + 2\lambda p_i, \qquad
+    \frac{\partial \ell_{ij}}{\partial q_j} = -2e_{ij}\,p_i + 2\lambda q_j.$$
+  \textbf{SGD update} (step size $\eta$, factor 2 absorbed):
+  \begin{align*}
+    p_i &\leftarrow p_i + \eta\,(e_{ij}\,q_j - \lambda\, p_i),\\
+    q_j &\leftarrow q_j + \eta\,(e_{ij}\,p_i - \lambda\, q_j).
+  \end{align*}
+  \vspace{0.1cm}
+  \textbf{Algorithm:} iterate over observed ratings in random order, compute $e_{ij}$, update $p_i$ and $q_j$.
+
+  \begin{block}{Note}
+    This is the \emph{Simon Funk SVD} method, which influenced the Netflix Prize solutions (2006). Despite the name, no SVD is computed explicitly.
+  \end{block}
+\end{frame}
+
+\begin{frame}{SVD++}
+  \textbf{Motivation.} Funk SVD ignores two useful signals:
+  \begin{itemize}
+    \item \emph{Biases} -- some users rate high on average; some movies are universally popular.
+    \item \emph{Implicit feedback} -- the \emph{set} of items a user rated reveals preferences itself.
+  \end{itemize}
+
+  \textbf{SVD++ (Koren 2008)} adds implicit item vectors $y_k$ -- one per item -- to augment the user factor:
+  $$\hat x_{ij} = \mu + b_i + b_j + q_j^\top\!\!\left(p_i + |\Omega_i|^{-1/2}\!\!\sum_{k\in \Omega_i}\!\! y_k\right)\!, \text{ where}$$
+  \begin{itemize}
+    \item $\mu$ is the global mean rating,
+    \item $b_i$ is the user bias,
+    \item $b_j$ is the item bias,
+    \item $y_k$ is the implicit user feedback,
+    \item $\Omega_i$ is the set of items rated by user $i$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Matrix factorisation vs.\ collaborative filtering}
+  \begin{center}
+  \renewcommand{\arraystretch}{1.35}
+  \begin{tabular}{lll}
+    \toprule
+    & \textbf{CF (kNN)} & \textbf{Matrix factorisation} \\
+    \midrule
+    \textbf{Scalability}   & $O(N^2)$ similarity matrix  & $O(|\Omega|\cdot q)$ per epoch \\
+    \textbf{Sparsity}      & fails if $|\Omega_i \cap \Omega_{i'}|$ small & latent factors generalise globally \\
+    \textbf{Biases}        & not modelled & explicit $b_i$, $b_j$, $\mu$ terms \\
+    \textbf{Implicit data} & ignored & $y_k$ vectors in SVD++ \\
+    \textbf{Accuracy}      & baseline & state-of-the-art (Netflix Prize) \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.25cm}
+  \textbf{Key insight.} Instead of asking \emph{``who is similar to this user?''}, matrix factorisation asks \emph{``what latent factors explain all ratings at once?''}
+\end{frame}
+
+\sectionframe{4. NMF decomposition}
+\begin{frame}{Idea}
+Assume $X \geq 0$. We want to find a decompositoin
+$$X_{N\times p} \approx W_{N\times q}H_{q\times p},$$
+where $w_{ik} \geq 0$, $h_{kj} \geq 0$.
+\begin{itemize}
+  \item Assume that $x_{ij} \sim Pois(\lambda_{ij})$, $\lambda_{ij}=(WH)_{ij}=\sum\limits_{k}w_{ik}h_{kj}$
+  \item Likelihood $l(W, H) = \prod\limits_{i,j} \frac{e^{-\lambda_{ij}} \lambda_{ij}^{x_{ij}}}{x_{ij}!}$
+  \item $\log l(W, H) = \underbrace{\sum\limits_{i,j} x_{ij}\log{\lambda_{ij}} - \lambda_{ij}}_{L(W, H)} - \log(x_{ij}!) \xrightarrow{w_{ij}, h_{ij}} \max$
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Optimization}
+$$L(W, H) = \sum\limits_{i,j} x_{ij}\log{\lambda_{ij} - \lambda_{ij}} \xrightarrow{w_{ij}, h_{ij}} \max$$
+\begin{itemize}
+  \item $\frac{\partial L}{\partial w_{ik}} = \sum\limits_{j} \left(\frac{x_{ij}}{\lambda_{ij}}\frac{\partial \lambda_{ij}}{\partial w_{ik}} - \frac{\partial \lambda_{ij}}{\partial w_{ik}}\right) = \underbrace{\sum\limits_{j} \frac{x_{ij}}{\lambda_{ij}}h_{kj}}_{A_{ik}} - \underbrace{\sum\limits_{j} h_{kj}}_{B_{ik}}$,
+  \item $\frac{\partial L}{\partial h_{kj}} = \sum\limits_{i} \left(\frac{x_{ij}}{\lambda_{ij}}\frac{\partial \lambda_{ij}}{\partial h_{kj}} - \frac{\partial \lambda_{ij}}{\partial h_{kj}}\right) = \sum\limits_{i} \frac{x_{ij}}{\lambda_{ij}} w_{ik} - \sum\limits_{i}w_{ik}$
+  \item Due to $w_{ik}\geq 0, h_{kj}\geq 0$ we cannot simply use gradient descent.
+  \item Lee and Seung 2001: 
+\end{itemize}
+$$w_{ik} \leftarrow w_{ik}\frac{A_{ik}}{B_{ik}} = \frac{\sum_{j} h_{kj}x_{ij} / (WH)_{ij}}{\sum_{j} h_{kj}}$$
+$$h_{kj} \leftarrow w_{ik}\frac{C_{kj}}{D_{kj}} = \frac{\sum_{i} w_{ik}x_{ij} / (WH)_{ij}}{\sum_{i} w_{ik}}$$
+\end{frame}
+
+\begin{frame}{References}
+  \begin{thebibliography}{9}
+    \bibitem{ESL}
+      T.~Hastie, R.~Tibshirani, J.~Friedman.
+      \textit{The Elements of Statistical Learning}.
+      Springer, 2nd ed., 2009.
+
+    \bibitem{EckartYoung1936}
+      C.~Eckart, G.~Young.
+      The approximation of one matrix by another of lower rank.
+      \textit{Psychometrika}, 1(3):211--218, 1936.
+
+    \bibitem{Funk2006}
+      S.~Funk.
+      Netflix Update: Try This at Home.
+      \textit{Blog post}, 2006.
+      \url{https://sifter.org/simon/journal/20061211.html}
+
+    \bibitem{Koren2008}
+      Y.~Koren.
+      Factorization Meets the Neighborhood: a Multifaceted Collaborative Filtering Model.
+      \textit{Proceedings of the 14th ACM SIGKDD}, pp.~426--434, 2008.
+
+    \bibitem{LeeSeung2001}
+      D.~D.~Lee, H.~S.~Seung.
+      Algorithms for Non-negative Matrix Factorization.
+      \textit{Advances in Neural Information Processing Systems (NIPS)}, 2001.
+  \end{thebibliography}
+\end{frame}
+
+\end{document}

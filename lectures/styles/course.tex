@@ -11,6 +11,7 @@
 
 % ---- Beamer setup ----
 \usetheme{default}
+\usefonttheme[onlymath]{serif}
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{footline}{%
   \hfill{\footnotesize\color{gray}\insertframenumber\,/\,\inserttotalframenumber\hspace{0.4cm}}\vspace{0.25cm}%
@@ -26,6 +27,8 @@
 \setbeamercolor{normal text}{fg=black}
 \setbeamercolor{frametitle}{fg=black}
 \setbeamerfont{frametitle}{size=\large, series=\bfseries}
+\setbeamertemplate{itemize item}[circle]
+\setbeamertemplate{itemize subitem}[circle]
 \setbeamercolor{itemize item}{fg=accentred}
 \setbeamercolor{itemize subitem}{fg=accentred}
 \setbeamercolor{enumerate item}{fg=accentred}
@@ -44,6 +47,7 @@
 % \coursetitle{<name>}  – name of the course (shown above the lecture title)
 % Use standard Beamer commands for the rest:
 %   \title, \subtitle, \author, \date, \institute
+\makeatletter
 \newcommand{\coursetitle}[1]{\def\@coursetitle{#1}}
 \def\@coursetitle{}
 
@@ -79,6 +83,8 @@
     \end{center}
   \end{frame}%
 }
+
+\makeatother
 
 % ---- Convenience macros ----
 \newcommand{\includegraphicscenter}[2]{%
