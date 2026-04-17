@@ -1,0 +1,505 @@
+\documentclass[aspectratio=169,t]{beamer}
+
+\input{styles/course}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{bbm}
+
+\coursetitle{Course: Foundations of AI with Embeddings}
+\title{Lecture 6: Sequential Models}
+\subtitle{Markov Chains \enspace$\cdot$\enspace Google PageRank \enspace$\cdot$\enspace Hidden Markov Models}
+\author{Liubov B.T., Vladimir Kukushkin}
+\institute{Constructor University}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{Sequences are everywhere}
+  Many real-world systems generate \emph{sequential} data where order matters:
+  \begin{itemize}
+    \item \textbf{Text}: word follows word; character follows character
+    \item \textbf{User sessions}: page $\to$ page $\to$ purchase (or exit)
+    \item \textbf{Finance}: stock prices, trading volumes over time
+    \item \textbf{Speech}: a stream of audio frames encoding phonemes
+    \item \textbf{Biology}: DNA base sequences, protein residues
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Goal}: learn a probability distribution over sequences $X_1, X_2, \ldots, X_T$.\\[0.2cm]
+  \textbf{Problem}: $P(X_1,\ldots,X_T) = P(X_1)\cdot P(X_2 | X_1)\cdot P(X_3 | X_2, X_1)\cdot\ldots = P(X_1)\prod_{t=2}^T P(X_t\mid X_{t-1},\ldots,X_1)$ is intractable in general -- the conditioning history grows without bound.\\[0.2cm]
+  \textbf{Key idea}: impose a \emph{conditional independence} assumption to tame the complexity.
+\end{frame}
+
+%% -------------------------------------------------------
+\sectionframe{1. Markov Chains}
+%% -------------------------------------------------------
+
+\begin{frame}{The Markov Property}
+  A sequence $X_1, X_2, \ldots$ satisfies the \textbf{(first-order) Markov property} if
+  $$\boxed{P(X_t \mid X_{t-1}, X_{t-2}, \ldots, X_1) = P(X_t \mid X_{t-1}).}$$
+
+  \begin{block}{Intuition}
+    ``The future is independent of the past, \emph{given} the present.''
+  \end{block}
+  \vspace{0.2cm}
+  Consequence: the joint probability factorises as
+  $$P(X_1, \ldots, X_T) = P(X_1)\prod_{t=2}^{T} P(X_t \mid X_{t-1}).$$
+  \vspace{0.1cm}
+  We additionally assume \textbf{time-homogeneity}: $P(X_t=j \mid X_{t-1}=i)$ does not depend on $t$.
+\end{frame}
+
+\begin{frame}{Formal Definition}
+  A \textbf{(homogeneous, discrete-time) Markov chain} is defined by:
+  \begin{itemize}
+    \item A finite \textbf{state space} $\mathcal{S} = \{s_1, \ldots, s_K\}$
+    \item A \textbf{transition matrix} $A \in \mathbb{R}^{K \times K}$,\quad
+          $A_{ij} = P(X_t = s_j \mid X_{t-1} = s_i)$
+    \item An \textbf{initial distribution} $\pi_0 \in \mathbb{R}^K$,\quad
+          $(\pi_0)_i = P(X_1 = s_i)$
+  \end{itemize}
+  \vspace{0.25cm}
+  Properties of $A$:
+  \begin{itemize}
+    \item All entries non-negative: $A_{ij} \geq 0$
+    \item \textbf{Row-stochastic}: $\displaystyle\sum_{j=1}^K A_{ij} = 1$ for every row $i$
+    \item Entry $A_{ij}$ is the probability of moving from state $i$ to state $j$ in one step
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Transition Diagram}
+\begin{columns}[T]
+  \begin{column}{0.52\textwidth}
+    \vspace{0.2cm}
+    \begin{center}
+    \begin{tikzpicture}[
+        state/.style={circle, draw=black, thick, minimum size=1.05cm,
+                      font=\small\bfseries},
+        ->, >=Stealth, semithick,
+        node distance=2.8cm
+      ]
+      \node[state] (S) {S};
+      \node[state, right of=S] (C) {C};
+      \node[state, right of=C] (R) {R};
+
+      \draw[->] (S) to[loop above, min distance=8mm, out=125, in=55]
+                    node[above]{\footnotesize 0.7} (S);
+      \draw[->] (C) to[loop above, min distance=8mm, out=125, in=55]
+                    node[above]{\footnotesize 0.4} (C);
+      \draw[->] (R) to[loop above, min distance=8mm, out=125, in=55]
+                    node[above]{\footnotesize 0.5} (R);
+
+      \draw[->] (S) to[bend left=20] node[above]{\footnotesize 0.2} (C);
+      \draw[->] (C) to[bend left=20] node[below]{\footnotesize 0.3} (S);
+
+      \draw[->] (C) to[bend left=20] node[above]{\footnotesize 0.3} (R);
+      \draw[->] (R) to[bend left=20] node[below]{\footnotesize 0.3} (C);
+
+      \draw[->] (S) to[bend left=40] node[above]{\footnotesize 0.1} (R);
+      \draw[->] (R) to[bend left=40] node[below]{\footnotesize 0.2} (S);
+    \end{tikzpicture}
+    \end{center}
+  \end{column}
+  \begin{column}{0.44\textwidth}
+    \vspace{0.4cm}
+    States: \textbf{S}unny, \textbf{C}loudy, \textbf{R}ainy.\\[0.5cm]
+    Transition matrix:
+    $$A = \begin{pmatrix}
+      0.7 & 0.2 & 0.1 \\
+      0.3 & 0.4 & 0.3 \\
+      0.2 & 0.3 & 0.5
+    \end{pmatrix}$$
+    \vspace{0.2cm}
+    Row $i$ = distribution over next states when currently in state $i$.
+  \end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{State Distribution Evolution}
+  Let $\pi_t \in \mathbb{R}^K$ be the \textbf{row vector} of state probabilities at time $t$:
+  $$(\pi_t)_j = P(X_t = s_j).$$
+
+  \textbf{One-step update} (law of total probability):
+  $$(\pi_t)_j = \sum_{i=1}^K (\pi_{t-1})_i\, A_{ij}
+    \qquad\Longrightarrow\qquad
+    \pi_t = \pi_{t-1} A.$$
+
+  \textbf{Multi-step propagation:}
+  $$\pi_t = \pi_0\, A^t.$$
+
+  The $(i,j)$ entry of $A^t$ gives the \emph{$t$-step transition probability}
+  $P(X_t = s_j \mid X_0 = s_i)$.
+
+  \vspace{0.25cm}
+  \textbf{Example.} Start in Sunny with probability 1: $\pi_0 = (1, 0, 0)$.
+  After one step: $\pi_1 = (0.7,\;0.2,\;0.1)$.
+  After two steps: $\pi_2 = \pi_1 A$.
+\end{frame}
+
+\begin{frame}{Stationary Distribution}
+  A distribution $\pi^* \in \mathbb{R}^K$ is \textbf{stationary} (or \emph{invariant}) for $A$ if
+  $$\pi^* = \pi^* A, \qquad \sum_{j=1}^K \pi^*_j = 1, \qquad \pi^*_j \geq 0.$$
+
+  $\pi^*$ is a \emph{left eigenvector} of $A$ with eigenvalue 1: $\pi^*(A - I) = \mathbf{0}$.
+
+  \begin{block}{Theorem (Perron--Frobenius)}
+    A Markov chain that is \textbf{irreducible} (any state reachable from any state) and
+    \textbf{aperiodic} (no periodic cycles) has a \textbf{unique} stationary distribution,
+    and $\pi_t \to \pi^*$ for any starting distribution $\pi_0$.
+  \end{block}
+  \vspace{0.2cm}
+  \textbf{Computing $\pi^*$:}
+  \begin{itemize}
+    \item Solve the linear system $\pi^*(A - I) = \mathbf{0}$ subject to $\sum_j \pi^*_j = 1$
+    \item \emph{Power iteration}: run $\pi_0 A^t$ until convergence
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Question: What is the stationary distribution?}
+\begin{columns}[T]
+  \begin{column}{0.50\textwidth}
+    \vspace{0.5cm}
+    \begin{center}
+    \begin{tikzpicture}[
+        state/.style={circle, draw=black, thick, minimum size=1.1cm,
+                      font=\small\bfseries},
+        ->, >=Stealth, semithick,
+        node distance=3.5cm
+      ]
+      \node[state] (A) {A};
+      \node[state, right of=A] (B) {B};
+
+      \draw[->] (A) to[bend left=25] node[above]{\footnotesize 0.99} (B);
+      \draw[->] (B) to[bend left=25] node[below]{\footnotesize 0.99} (A);
+
+      \draw[->] (A) to[loop left,  min distance=8mm, out=215, in=145]
+                    node[left]{\footnotesize 0.01} (A);
+      \draw[->] (B) to[loop right, min distance=8mm, out=325, in=35]
+                    node[right]{\footnotesize 0.01} (B);
+    \end{tikzpicture}
+    \end{center}
+  \end{column}
+  \begin{column}{0.46\textwidth}
+    \vspace{0.3cm}
+    Transition matrix:
+    $$A = \begin{pmatrix} 0.01 & 0.99 \\ 0.99 & 0.01 \end{pmatrix}$$
+    \vspace{0.4cm}
+    The chain bounces between A and B almost every step.\\[0.4cm]
+    \textbf{What is $\pi^*$?}
+  \end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Answer: Stationary Distribution of the Two-State Chain}
+  \textbf{Setup:} $\pi^* = (\pi^*_A,\; \pi^*_B)$ satisfies $\pi^* = \pi^* A$ and $\pi^*_A + \pi^*_B = 1$.\\[0.3cm]
+  \textbf{Equation for $\pi^*_A$:}
+  $$\pi^*_A = 0.01\,\pi^*_A + 0.99\,\pi^*_B = 0.01\,\pi^*_A + 0.99\,(1-\pi^*_A)$$
+  $$\pi^*_A = 0.99 - 0.98\,\pi^*_A \quad\Longrightarrow\quad 1.98\,\pi^*_A = 0.99
+  \quad\Longrightarrow\quad \boxed{\pi^*_A = \pi^*_B = 0.5}$$
+
+  \vspace{0.2cm}
+  \textbf{Intuition.} The chain is \emph{symmetric}: $a_{AB} = a_{BA} = 0.99$. By symmetry, both states must be equally likely in steady state — \emph{regardless} of how large or small the self-loop probability is.\\[0.2cm]
+
+  \textbf{Key takeaway.} The stationary distribution depends on the \emph{ratio} of transition rates, not their absolute magnitude.
+
+  \begin{block}{General two-state formula}
+    For $A = \bigl(\begin{smallmatrix}1-\alpha & \alpha \\ \beta & 1-\beta\end{smallmatrix}\bigr)$:\quad
+    $\pi^*_A = \dfrac{\beta}{\alpha+\beta}$,\quad $\pi^*_B = \dfrac{\alpha}{\alpha+\beta}$.
+    \;Here $\alpha=\beta=0.99$, so $\pi^* = (0.5,\;0.5)$.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Application: Google PageRank}
+  \textbf{Naive idea:} rank page $j$ by the number of incoming links.\\[0.1cm]
+  \textbf{Problem:} 100 links from spam sites $<<$ 1 link from Wikipedia.\\[0.25cm]
+  
+  \textbf{Recursive definition.}
+  $L = (L_{ij}) = \mathbbm{1}_{j\to i}$ -- a matrix of links, $c_j = \sum_i L_{ij}$ -- the number of pages that page $j$ links to.
+  PageRank $p_j$ is the weighted sum of ranks of pages that refer to $j$:
+  $$p_j = \sum_{i=1}^N \frac{L_{ij}}{c_i} p_i \;\;\text{ or in matrix form: } p = L D^{-1}_c p,$$
+  where $D_c = \text{diag}(c)$. So each page $i$ distributes its rank equally among all pages it links to. \\[0.25cm]
+
+  \textbf{Problem:} \emph{Dangling nodes} -- pages with no outgoing links.
+
+  \textbf{Fix -- teleportation (Page, 1998):}
+  $$p = (1-d)e + d\cdot LD^{-1}_c p \qquad d\approx 0.85, \,\, e = (1, \ldots, 1)^\top$$
+  $$p = \left[(1-d)ee^\top/N + dLD^{-1}_c\right]p = Ap$$
+\end{frame}
+
+\begin{frame}{PageRank: example}
+\begin{columns}[T]
+  \begin{column}{0.40\textwidth}
+    \vspace{0.3cm}
+    \begin{center}
+    \begin{tikzpicture}[
+        page/.style={circle, draw=black, thick, minimum size=0.95cm,
+                     font=\small\bfseries},
+        ->, >=Stealth, semithick
+      ]
+      \node[page] (1) at (1.2,  2.1) {1};
+      \node[page] (2) at (2.5,  0.4) {2};
+      \node[page] (3) at (0,    0.4) {3};
+      \node[page] (4) at (1.2, -0.9) {4};
+
+      \draw[->] (1) -- (2);
+      \draw[->] (1) edge[bend right=12] (3);
+      \draw[->] (2) -- (3);
+      \draw[->] (3) edge[bend right=12] (1);
+      \draw[->] (4) -- (3);
+    \end{tikzpicture}
+    \end{center}
+    \vspace{0.1cm}
+    Out-degrees: $c = (2,\,1,\,1,\,1)$\\[0.1cm]
+  \end{column}
+  \begin{column}{0.57\textwidth}
+    \vspace{0.1cm}
+    {\small
+    $L = \begin{pmatrix}0&0&1&0\\1&0&0&0\\1&1&0&1\\0&0&0&0\end{pmatrix}$\quad
+    $LD_c^{-1} = \begin{pmatrix}0&0&1&0\\[2pt]\tfrac{1}{2}&0&0&0\\[2pt]\tfrac{1}{2}&1&0&1\\0&0&0&0\end{pmatrix}$
+    }
+    \vspace{0.15cm}
+
+    $$A = \begin{pmatrix}
+        0.0375&0.0375&0.8875&0.0375\\
+        0.4625&0.0375&0.0375&0.0375\\
+        0.4625&0.8875&0.0375&0.8875\\
+        0.0375&0.0375&0.0375&0.0375
+    \end{pmatrix}$$
+
+    $$p = (1.49, 0.78, 1.58, 0.15)$$
+
+  \end{column}
+\end{columns}
+\end{frame}
+
+%% -------------------------------------------------------
+\sectionframe{2. Hidden Markov Models}
+%% -------------------------------------------------------
+
+\begin{frame}{Observed vs.\ Hidden Sequences}
+  In many settings the underlying \emph{state} cannot be observed directly — only noisy
+  \emph{emissions} are visible:
+  \vspace{0.15cm}
+  \begin{center}
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Application} & \textbf{Hidden state} & \textbf{Observation} \\
+    \midrule
+    Speech recognition   & Phoneme               & Audio frame (MFCC vector) \\
+    POS tagging          & POS tag (Noun, Verb\ldots) & Word \\
+    Gene finding         & Gene / non-gene region & DNA base (A, C, G, T) \\
+    Finance              & Market regime (bull/bear) & Daily return \\
+    User modelling       & User intent            & Clicked item \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \vspace{0.2cm}
+  \textbf{Hidden Markov Model (HMM):} extend a Markov chain by adding a layer of
+  \emph{probabilistic emissions} on top of the hidden states.
+\end{frame}
+
+\begin{frame}{HMM: Definition}
+  A \textbf{Hidden Markov Model} $\lambda = (A, B, \pi)$ consists of:
+  \begin{itemize}
+    \item $N$ \textbf{hidden states} $\mathcal{Q} = \{q_1, \ldots, q_N\}$
+    \item $M$ \textbf{observation symbols} $\mathcal{V} = \{v_1, \ldots, v_M\}$
+    \item \textbf{Transition matrix} $A \in \mathbb{R}^{N\times N}$:\;
+          $a_{ij} = P(Z_t = q_j \mid Z_{t-1} = q_i)$
+    \item \textbf{Emission matrix} $B \in \mathbb{R}^{N\times M}$:\;
+          $b_{ik} = P(O_t = v_k \mid Z_t = q_i)$
+    \item \textbf{Initial distribution} $\pi \in \mathbb{R}^N$:\;
+          $\pi_i = P(Z_1 = q_i)$
+  \end{itemize}
+  \vspace{0.25cm}
+  \textbf{Generative process:}
+  \begin{enumerate}
+    \item Draw $Z_1 \sim \pi$;\quad emit $O_1 \sim B[Z_1,\cdot]$
+    \item For $t = 2, \ldots, T$: draw $Z_t \sim A[Z_{t-1},\cdot]$;\quad emit $O_t \sim B[Z_t,\cdot]$
+  \end{enumerate}
+  Hidden states $Z_{1:T}$ are \emph{never} observed; we only see $O_{1:T}$.
+\end{frame}
+
+\begin{frame}{HMM Structure}
+\begin{center}
+\begin{tikzpicture}[
+    obs/.style={circle, draw=accentred, thick, minimum size=0.95cm,
+                fill=accentred!10, font=\small},
+    hid/.style={circle, draw=black, thick, minimum size=0.95cm, font=\small},
+    ->, >=Stealth, semithick,
+    node distance=2.4cm
+  ]
+  \node[hid] (Z1) {$Z_1$};
+  \node[hid, right of=Z1] (Z2) {$Z_2$};
+  \node[hid, right of=Z2] (Z3) {$Z_3$};
+  \node[hid, right of=Z3, xshift=0.4cm] (ZT) {$Z_T$};
+
+  \draw[->] (Z1) edge node[above,font=\footnotesize]{$A$} (Z2);
+  \draw[->] (Z2) edge node[above,font=\footnotesize]{$A$} (Z3);
+  \draw[->,dashed] (Z3) -- node[above,font=\footnotesize]{} (ZT);
+
+  \node[obs, below of=Z1, node distance=1.6cm] (O1) {$O_1$};
+  \node[obs, below of=Z2, node distance=1.6cm] (O2) {$O_2$};
+  \node[obs, below of=Z3, node distance=1.6cm] (O3) {$O_3$};
+  \node[obs, below of=ZT, node distance=1.6cm] (OT) {$O_T$};
+
+  \draw[->] (Z1) edge node[right,font=\footnotesize]{$B$} (O1);
+  \draw[->] (Z2) edge node[right,font=\footnotesize]{$B$} (O2);
+  \draw[->] (Z3) edge node[right,font=\footnotesize]{$B$} (O3);
+  \draw[->] (ZT) edge node[right,font=\footnotesize]{$B$} (OT);
+
+  \node[above of=Z1, node distance=1.1cm, font=\small] (pi) {$\pi$};
+  \draw[->] (pi) edge (Z1);
+\end{tikzpicture}
+\end{center}
+\vspace{0.1cm}
+\begin{itemize}
+  \item The hidden states $Z_1,\ldots,Z_T$ form a \emph{Markov chain} (governed by $A$ and $\pi$)
+  \item Each observation $O_t$ depends \emph{only} on the current hidden state $Z_t$ (governed by $B$)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Three Fundamental Problems}
+  Given model $\lambda = (A, B, \pi)$ and observations $O = (O_1, \ldots, O_T)$:
+  \vspace{0.2cm}
+  \begin{enumerate}
+    \item \textbf{Evaluation} — What is the probability of the observed sequence?
+      $$P(O \mid \lambda) = ?$$
+      {\small\textcolor{accentred}{Algorithm:} Forward algorithm \hfill Complexity: $O(N^2 T)$}
+    \vspace{0.2cm}
+    \item \textbf{Decoding} — What is the most likely hidden state sequence?
+      $$Z^* = \arg\max_{Z_{1:T}} P(Z_{1:T} \mid O,\,\lambda)$$
+      {\small\textcolor{accentred}{Algorithm:} Viterbi algorithm \hfill Complexity: $O(N^2 T)$}
+    \vspace{0.2cm}
+    \item \textbf{Learning} — Given observations only, how do we estimate $\lambda$?
+      $$\hat\lambda = \arg\max_{\lambda}\; P(O \mid \lambda)$$
+      {\small\textcolor{accentred}{Algorithm:} Baum--Welch (EM) \hfill Complexity: $O(N^2 T)$ per iteration}
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Problem 1: Evaluation -- Forward Algorithm}
+  \textbf{Naïve approach:} sum over all $N^T$ state sequences — exponential in $T$.\\[0.2cm]
+  \textbf{Forward variable:}
+  $\;\alpha_t(i) = P(O_1, \ldots, O_t,\; Z_t = q_i \mid \lambda)$\\[0.2cm]
+  \textbf{Initialization} $(t=1)$:
+  $$\alpha_1(i) = \pi_i\, b_{i,\,O_1}$$
+  \textbf{Recursion} $(t = 2, \ldots, T)$:
+  $$\alpha_t(j) = \left[\sum_{i=1}^N \alpha_{t-1}(i)\; a_{ij}\right] b_{j,\,O_t}$$
+  \textbf{Termination:}
+  $$P(O \mid \lambda) = \sum_{i=1}^N \alpha_T(i)$$
+  \vspace{0.1cm}
+  The recursion reuses all intermediate computations: $O(N^2 T)$ instead of $O(N^T)$.
+\end{frame}
+
+\begin{frame}{Problem 2: Decoding -- Viterbi Algorithm}
+  Find the single best path: $Z^* = \arg\max_{Z_{1:T}} P(Z_{1:T}  \mid O, \lambda)$.\\[0.2cm]
+  \textbf{Viterbi variable:}
+  $\;\delta_t(i) = \max_{Z_{1:t-1}} P(Z_{1:t-1}, Z_t = q_i \mid O_{1:t}, \lambda)$\\[0.2cm]
+  \textbf{Initialization:}
+  $$\delta_1(i) = \pi_i\, b_{i,\,O_1}, \qquad \psi_1(i) = 0$$
+  \textbf{Recursion:}
+  $$\delta_t(j) = \max_{1\le i\le N}\bigl[\delta_{t-1}(i)\;a_{ij}\bigr]\;b_{j,\,O_t},
+    \qquad
+    \psi_t(j) = \arg\max_{1\le i\le N}\bigl[\delta_{t-1}(i)\;a_{ij}\bigr]$$
+  \textbf{Traceback:} start from $Z^*_T = \arg\max_i\,\delta_T(i)$, then
+  $Z^*_t = \psi_{t+1}(Z^*_{t+1})$ backwards.\\[0.15cm]
+  Same structure as the forward algorithm with \textbf{max} replacing \textbf{sum}.
+\end{frame}
+
+\begin{frame}{Problem 3: Learning -- Baum--Welch}
+  \textbf{Goal:} find $\lambda=(A,B,\pi)$ maximising $P(O\mid\lambda)$. No closed form — use EM.\\[0.1cm]
+  If we knew $Z_{1:T}$, we'd estimate
+  $\hat a_{ij} = \frac{\#(Z_t{=}q_i, Z_{t+1}{=}q_j)}{\#(Z_t{=}q_i)}$,\;
+  $\hat b_{ik} = \frac{\#(Z_t{=}q_i, O_t{=}v_k)}{\#(Z_t{=}q_i)}$.\\[0.3cm]
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Forward variable} $\alpha_t(i)$\\[0.1cm]
+      $\alpha_t(i) = P(O_1,\ldots,O_t,\, Z_t{=}q_i \mid \lambda)$\\[0.2cm]
+      Init:\quad $\alpha_1(i)=\pi_i\,b_{i,O_1}$\\[0.15cm]
+      Recurse:
+      $$\alpha_{t+1}(i)=\sum_j \alpha_t(j)\, a_{ji} b_{i,O_{t+1}}$$
+      Sweeps left $\to$ right.
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Backward variable} $\beta_t(i)$\\[0.1cm]
+      $\beta_t(i) = P(O_{t+1},\ldots,O_T \mid Z_t{=}q_i,\,\lambda)$\\[0.2cm]
+      Init:\quad $\beta_T(i)=1$\\[0.15cm]
+      Recurse:
+      $$\beta_t(i)=\sum_j a_{ij}\,b_{j,O_{t+1}}\,\beta_{t+1}(j)$$
+      Sweeps right $\to$ left.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[shrink=3]{Problem 3: Learning -- Baum--Welch (EM)}
+    \textbf{E-step:}
+    \begin{align*}
+      \gamma_t(i) &= P(Z_t = q_i \mid O,\lambda) = \frac{P(Z_t = q_i, O \mid \lambda)}{P(O \mid \lambda)}
+      \propto \alpha_t(i) \beta_t(i)\\[4pt]
+      \xi_t(i,j)  &= P(Z_t = q_i, Z_{t+1} = q_j \mid O,\lambda) = \frac{P(Z_t = q_i, Z_{t+1} = q_j, O \mid \lambda)}{P(O \mid \lambda)}
+                   \;\propto\; \alpha_t(i)\;a_{ij}\;b_{j,O_{t+1}}\;\beta_{t+1}(j)
+    \end{align*}
+    \textbf{M-step:} re-estimate parameters:
+    $$\hat\pi_i = \gamma_1(i), \qquad
+      \hat a_{ij} = \frac{\displaystyle\sum_{t=1}^{T-1}\xi_t(i,j)}
+                         {\displaystyle\sum_{t=1}^{T-1}\gamma_t(i)}, \qquad
+      \hat b_{ik} = \frac{\displaystyle\sum_{t:\,O_t=v_k}\gamma_t(i)}
+                         {\displaystyle\sum_{t=1}^{T}\gamma_t(i)}$$
+    Iterate E and M steps until convergence (guaranteed to find a local maximum of $P(O\mid\lambda)$).
+  \end{frame}
+  
+
+\begin{frame}{Example: Part-of-Speech Tagging}
+  \textbf{Task:} assign a POS tag to each word in a sentence.\\[0.15cm]
+  \quad``The \; cat \; sat \; on \; the \; mat''
+  $\;\xrightarrow{\text{Viterbi}}\;$
+  Det \; Noun \; Verb \; Prep \; Det \; Noun\\[0.25cm]
+  \begin{columns}[T]
+    \begin{column}{0.46\textwidth}
+      \textbf{Model components}
+      \begin{itemize}
+        \item \emph{Hidden states}: POS tags
+        \item \emph{Observations}: words (vocabulary)
+        \item \emph{Transitions}: $P(\text{Noun}\mid\text{Det})$
+        \item \emph{Emissions}: $P(\text{``cat''}\mid\text{Noun})$
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \textbf{Mapping to the three problems}
+      \begin{itemize}
+        \item \emph{Evaluation}: how likely is this sentence?
+        \item \emph{Decoding}: what POS sequence best explains the words? (Viterbi)
+        \item \emph{Learning}: supervised (annotated corpora) or unsupervised (Baum--Welch)
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{References}
+  \begin{thebibliography}{9}
+    \bibitem{Rabiner1989}
+      L.~R.~Rabiner.
+      A Tutorial on Hidden Markov Models and Selected Applications in Speech Recognition.
+      \textit{Proceedings of the IEEE}, 77(2):257--286, 1989.\\
+      \url{https://www.cs.ubc.ca/~murphyk/Bayes/rabiner.pdf}
+
+    \bibitem{Jurafsky2023}
+      D.~Jurafsky, J.~H.~Martin.
+      \textit{Speech and Language Processing}, 3rd ed., 2024.
+      Chapter 17: Sequence Labeling for Parts of Speech and Named Entities.\\
+      \url{https://web.stanford.edu/~jurafsky/slp3/ed3bookaug20_2024.pdf}
+
+    \bibitem{Bishop2006}
+      C.~M.~Bishop.
+      \textit{Pattern Recognition and Machine Learning}.
+      Springer, 2006. Chapter~13: Sequential Data.\\
+      \url{https://www.microsoft.com/en-us/research/wp-content/uploads/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf}
+
+    \bibitem{Brin1998}
+      S.~Brin, L.~Page.
+      \textit{The Anatomy of a Large-Scale Hypertextual Web Search Engine}.
+      Stanford University, 1998.\\
+      \url{http://infolab.stanford.edu/pub/papers/google.pdf}
+  \end{thebibliography}
+\end{frame}
+
+\end{document}
