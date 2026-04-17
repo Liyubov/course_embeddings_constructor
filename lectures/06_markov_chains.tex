@@ -6,7 +6,7 @@
 
 \coursetitle{Course: Foundations of AI with Embeddings}
 \title{Lecture 6: Sequential Models}
-\subtitle{Markov Chains \enspace$\cdot$\enspace Stationary Distributions \enspace$\cdot$\enspace Hidden Markov Models}
+\subtitle{Markov Chains \enspace$\cdot$\enspace Google PageRank \enspace$\cdot$\enspace Hidden Markov Models}
 \author{Liubov B.T., Vladimir Kukushkin}
 \institute{Constructor University}
 \date{2026}
@@ -26,7 +26,7 @@
   \end{itemize}
   \vspace{0.3cm}
   \textbf{Goal}: learn a probability distribution over sequences $X_1, X_2, \ldots, X_T$.\\[0.2cm]
-  \textbf{Problem}: $P(X_1,\ldots,X_T) = P(X_1)\cdot P(X_2 | X_1)\cdot P(X_3 | X_2, X_1)\cdot\ldots = P(X_1)\prod_{t=2}^T P(X_t\mid X_{t-1},\ldots,X_1)$ is intractable in general — the conditioning history grows without bound.\\[0.2cm]
+  \textbf{Problem}: $P(X_1,\ldots,X_T) = P(X_1)\cdot P(X_2 | X_1)\cdot P(X_3 | X_2, X_1)\cdot\ldots = P(X_1)\prod_{t=2}^T P(X_t\mid X_{t-1},\ldots,X_1)$ is intractable in general -- the conditioning history grows without bound.\\[0.2cm]
   \textbf{Key idea}: impose a \emph{conditional independence} assumption to tame the complexity.
 \end{frame}
 
@@ -141,7 +141,7 @@
 
   $\pi^*$ is a \emph{left eigenvector} of $A$ with eigenvalue 1: $\pi^*(A - I) = \mathbf{0}$.
 
-  \begin{block}{Existence and uniqueness (Perron--Frobenius)}
+  \begin{block}{Theorem (Perron--Frobenius)}
     A Markov chain that is \textbf{irreducible} (any state reachable from any state) and
     \textbf{aperiodic} (no periodic cycles) has a \textbf{unique} stationary distribution,
     and $\pi_t \to \pi^*$ for any starting distribution $\pi_0$.
@@ -376,7 +376,7 @@
   \end{enumerate}
 \end{frame}
 
-\begin{frame}{Problem 1: Evaluation — Forward Algorithm}
+\begin{frame}{Problem 1: Evaluation -- Forward Algorithm}
   \textbf{Naïve approach:} sum over all $N^T$ state sequences — exponential in $T$.\\[0.2cm]
   \textbf{Forward variable:}
   $\;\alpha_t(i) = P(O_1, \ldots, O_t,\; Z_t = q_i \mid \lambda)$\\[0.2cm]
@@ -390,7 +390,7 @@
   The recursion reuses all intermediate computations: $O(N^2 T)$ instead of $O(N^T)$.
 \end{frame}
 
-\begin{frame}{Problem 2: Decoding — Viterbi Algorithm}
+\begin{frame}{Problem 2: Decoding -- Viterbi Algorithm}
   Find the single best path: $Z^* = \arg\max_{Z_{1:T}} P(Z_{1:T}  \mid O, \lambda)$.\\[0.2cm]
   \textbf{Viterbi variable:}
   $\;\delta_t(i) = \max_{Z_{1:t-1}} P(Z_{1:t-1}, Z_t = q_i \mid O_{1:t}, \lambda)$\\[0.2cm]
@@ -405,20 +405,32 @@
   Same structure as the forward algorithm with \textbf{max} replacing \textbf{sum}.
 \end{frame}
 
-\begin{frame}{Problem 3: Learning — Baum--Welch (EM)}
+\begin{frame}{Problem 3: Learning -- Baum--Welch}
   \textbf{Goal:} find $\lambda=(A,B,\pi)$ maximising $P(O\mid\lambda)$. No closed form — use EM.\\[0.1cm]
-  \textbf{E-step:} compute soft state assignments via the \emph{forward} ($\alpha$) and \emph{backward} ($\beta$) variables, where
-  $$\alpha_t(i) = P(O_1,\ldots,O_t, Z_t = q_i, \mid \,\lambda), \quad
-    \alpha_1(i)=\pi_i\,b_{i,O_1}, \quad
-    \alpha_{t+1}(i)=\sum_j \alpha_t(j) a_{ji}\,b_{i,O_{t+1}}.$$
-  $$\beta_t(i) = P(O_{t+1},\ldots,O_T \mid Z_t = q_i,\,\lambda), \quad
-    \beta_T(i)=1, \quad
-    \beta_t(i)=\sum_j a_{ij}\,b_{j,O_{t+1}}\,\beta_{t+1}(j).$$
-
-  \textbf{Problem:} It works, but it suffers from converging exponentially to zero for long sequences.
+  If we knew $Z_{1:T}$, we'd estimate
+  $\hat a_{ij} = \frac{\#(Z_t{=}q_i, Z_{t+1}{=}q_j)}{\#(Z_t{=}q_i)}$,\;
+  $\hat b_{ik} = \frac{\#(Z_t{=}q_i, O_t{=}v_k)}{\#(Z_t{=}q_i)}$.\\[0.3cm]
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Forward variable} $\alpha_t(i)$\\[0.1cm]
+      $\alpha_t(i) = P(O_1,\ldots,O_t,\, Z_t{=}q_i \mid \lambda)$\\[0.2cm]
+      Init:\quad $\alpha_1(i)=\pi_i\,b_{i,O_1}$\\[0.15cm]
+      Recurse:
+      $$\alpha_{t+1}(i)=\sum_j \alpha_t(j)\, a_{ji} b_{i,O_{t+1}}$$
+      Sweeps left $\to$ right.
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Backward variable} $\beta_t(i)$\\[0.1cm]
+      $\beta_t(i) = P(O_{t+1},\ldots,O_T \mid Z_t{=}q_i,\,\lambda)$\\[0.2cm]
+      Init:\quad $\beta_T(i)=1$\\[0.15cm]
+      Recurse:
+      $$\beta_t(i)=\sum_j a_{ij}\,b_{j,O_{t+1}}\,\beta_{t+1}(j)$$
+      Sweeps right $\to$ left.
+    \end{column}
+  \end{columns}
 \end{frame}
 
-\begin{frame}[shrink=3]{Problem 3: Learning — Baum--Welch (EM)}
+\begin{frame}[shrink=3]{Problem 3: Learning -- Baum--Welch (EM)}
     \textbf{E-step:}
     \begin{align*}
       \gamma_t(i) &= P(Z_t = q_i \mid O,\lambda) = \frac{P(Z_t = q_i, O \mid \lambda)}{P(O \mid \lambda)}
@@ -467,22 +479,26 @@
     \bibitem{Rabiner1989}
       L.~R.~Rabiner.
       A Tutorial on Hidden Markov Models and Selected Applications in Speech Recognition.
-      \textit{Proceedings of the IEEE}, 77(2):257--286, 1989.
+      \textit{Proceedings of the IEEE}, 77(2):257--286, 1989.\\
+      \url{https://www.cs.ubc.ca/~murphyk/Bayes/rabiner.pdf}
 
     \bibitem{Jurafsky2023}
       D.~Jurafsky, J.~H.~Martin.
       \textit{Speech and Language Processing}, 3rd ed., 2024.
-      Chapter 8: Sequence Labeling for Parts of Speech and Named Entities.
+      Chapter 17: Sequence Labeling for Parts of Speech and Named Entities.\\
+      \url{https://web.stanford.edu/~jurafsky/slp3/ed3bookaug20_2024.pdf}
 
     \bibitem{Bishop2006}
       C.~M.~Bishop.
       \textit{Pattern Recognition and Machine Learning}.
-      Springer, 2006. Chapter~13: Sequential Data.
+      Springer, 2006. Chapter~13: Sequential Data.\\
+      \url{https://www.microsoft.com/en-us/research/wp-content/uploads/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf}
 
-    \bibitem{Page1999}
-      L.~Page, S.~Brin, R.~Motwani, T.~Winograd.
-      The PageRank Citation Ranking: Bringing Order to the Web.
-      \textit{Technical Report}, Stanford InfoLab, 1999.
+    \bibitem{Brin1998}
+      S.~Brin, L.~Page.
+      \textit{The Anatomy of a Large-Scale Hypertextual Web Search Engine}.
+      Stanford University, 1998.\\
+      \url{http://infolab.stanford.edu/pub/papers/google.pdf}
   \end{thebibliography}
 \end{frame}
 
