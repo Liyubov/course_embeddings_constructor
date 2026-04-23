@@ -574,7 +574,11 @@
       \textbf{Complexity}:
       \begin{itemize}
         \item \textbf{Two sequences}: $O(|s_1| \cdot |s_2|)$ time
-        \item \textbf{Multiple sequences}: NP-hard -- exponential search over all gap placements
+        \item \textbf{Multiple sequences}:
+        \begin{itemize}
+          \item No profiles: NP-hard
+          \item With profiles: $O(M \log N)$
+        \end{itemize}
       \end{itemize}
       \vspace{0.25cm}
     \end{column}
@@ -596,8 +600,8 @@
 \begin{frame}[shrink=5]{Aggregate tree: hierarchical clustering of sequences}
   \begin{columns}[T]
     \begin{column}{0.50\textwidth}
-      \textbf{Input}: $N$ unique event sequences $S = \{s_1,\ldots,s_N\}$\\[0.2cm]
-      \textbf{Goal}: build a tree that organises sequences into nested clusters — so the user can explore data at any level of granularity.\\[0.2cm]
+      \textbf{Input}: unique sequences $S = \{s_1,\ldots,s_N\}$\\[0.2cm]
+      \textbf{Goal}: build nested clusters.\\[0.2cm]
       \textbf{Algorithm} (agglomerative / bottom-up):
       \begin{enumerate}
         \item Each $s_i$ starts as its own leaf node
@@ -610,7 +614,7 @@
         \end{enumerate}
       \end{enumerate}
       \vspace{0.15cm}
-      \textbf{Distance}: cosine distance of \textbf{q-gram profiles} — vectors of sub-sequence counts of length $q$; with $q{=}1$ order is ignored.
+      \textbf{Distance}: cosine distance of \textbf{q-gram profiles} -- vectors of sub-sequence counts of length $q$; with $q{=}1$ order is ignored.
     \end{column}
     \begin{column}{0.47\textwidth}
       \vspace{0.3cm}
@@ -662,62 +666,27 @@
 \end{frame}
 
 %%------------------------------------------------------------
-\begin{frame}[shrink=5]{Progressive MSA: following the aggregate tree}
-    \begin{columns}[T]
-      \begin{column}{0.52\textwidth}
-        The \textbf{progressive} approach builds alignments bottom-up, following the tree:
-        \begin{itemize}
-          \item \textbf{Leaf nodes}: alignment $\lambda$ is the sequence itself
-          \item \textbf{Internal node} $n_{a,b}$: align the two child alignments $\lambda_a$ and $\lambda_b$
-          \item At each merge: align two \emph{profiles} (not raw sequences)
-          \item A profile $= N \times M$ matrix $\to$ aligning two profiles adds gaps into both
-        \end{itemize}
-        \vspace{0.3cm}
-        \textbf{Scoring parameters} (scikit-bio):
-        \begin{center}
-        \begin{tabular}{ll}
-          \toprule
-          gap open penalty & $0.8$ \\
-          match score       & $+3$ \\
-          mismatch score    & $-1$ \\
-          \bottomrule
-        \end{tabular}
-        \end{center}
-      \end{column}
-      \begin{column}{0.45\textwidth}
-        \vspace{0.5cm}
-        \begin{center}
-        \begin{tikzpicture}[
-          scale=0.80,
-          leaf/.style={draw,fill=blue!20,rounded corners=2pt,
-                       minimum width=1.0cm,minimum height=0.5cm,font=\scriptsize},
-          inode/.style={circle,draw=accentred,fill=accentred!20,minimum size=0.6cm,
-                        font=\tiny,inner sep=0pt},
-          >=Stealth
-        ]
-          \node[leaf] (s1) at (0,   0) {$s_1$};
-          \node[leaf] (s2) at (1.3, 0) {$s_2$};
-          \node[leaf] (s3) at (3.0, 0) {$s_3$};
-          \node[leaf] (s4) at (4.3, 0) {$s_4$};
-  
-          \node[inode] (n12) at (0.65, 1.4) {$\lambda_{12}$};
-          \draw (s1)--(n12); \draw (s2)--(n12);
-          \node[font=\tiny,right] at (1.05,1.4) {align $s_1, s_2$};
-  
-          \node[inode] (n34) at (3.65, 1.4) {$\lambda_{34}$};
-          \draw (s3)--(n34); \draw (s4)--(n34);
-          \node[font=\tiny,left] at (3.25,1.4) {align $s_3, s_4$};
-  
-          \node[inode] (root) at (2.15, 2.8) {$\lambda$};
-          \draw (n12)--(root); \draw (n34)--(root);
-          \node[font=\tiny,right] at (2.35,2.8) {align $\lambda_{12}$ with $\lambda_{34}$};
-        \end{tikzpicture}
-        \end{center}
-        \vspace{0.3cm}
-        {\footnotesize \textbf{Result}: for every node, an $N \times M$ alignment matrix $\lambda$, where $N$ = number of input sequences and $M$ = alignment length}
-      \end{column}
-    \end{columns}
-  \end{frame}  
+\begin{frame}{Progressive MSA: following the aggregate tree}
+  The \textbf{progressive} approach builds alignments bottom-up, following the aggregatetree:
+  \begin{itemize}
+    \item \textbf{Leaf nodes}: alignment $\lambda$ is the sequence itself
+    \item \textbf{Internal node} $n_{a,b}$: align the two child alignments $\lambda_a$ and $\lambda_b$
+    \item At each merge: align two \emph{profiles}
+    \item A profile $= N \times M$ matrix $\to$ aligning two profiles adds gaps into both
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Scoring parameters} (scikit-bio):
+  \begin{center}
+  \begin{tabular}{ll}
+    \toprule
+    gap open penalty & $0.8$ \\
+    match score       & $+3$ \\
+    mismatch score    & $-1$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \textbf{Why progressive?} $N-1$ pairwise profile alignments of sequences of length $\leq M$ gives complexity $O(N \cdot M^2)$ vs.\ the exact MSA cost $O(M^N)$.
+\end{frame}
 
 %%------------------------------------------------------------
 \begin{frame}[shrink=5]{Align $\to$ Score $\to$ Simplify}
@@ -740,14 +709,14 @@
         \end{center}
       \end{column}
       \begin{column}{0.66\textwidth}
-        \textbf{Step 1 — Align}:\\
+        \textbf{Step 1 -- Align}:\\
         Use progressive MSA to align all sequences in the cluster.\\
         Result: $N \times M$ matrix $\lambda$ (rows = sequences, columns = aligned positions).\\[0.25cm]
-        \textbf{Step 2 — Score}:\\
+        \textbf{Step 2 -- Score}:\\
         For each column $j$ of $\lambda$, compute information score $I_j \in [0,1]$.\\
         $I_j = 1$: all events in column $j$ are the same \quad (homogeneous)\\
         $I_j \approx 0$: column $j$ is mostly gaps or random events\\[0.25cm]
-        \textbf{Step 3 — Simplify}:\\
+        \textbf{Step 3 -- Simplify}:\\
         Merge consecutive columns where both $I_j < I_\tau$ and $I_{j+1} < I_\tau$.\\
         Result: simplified matrix $\alpha$ of length $M' \leq M$.\\
         The horizontal level-of-detail is controlled by $I_\tau$.
@@ -759,10 +728,10 @@
 
 
 %%------------------------------------------------------------
-\begin{frame}[shrink=5]{Score: information score per column}
+\begin{frame}{Score: information score per column}
   After alignment, measure how \textbf{homogeneous} each column $j$ is:
   \[
-    \boxed{I_j = 1 - \frac{E_j}{\log_2(|\mathcal{A}|+1)}}
+    I_j = 1 - \frac{E_j}{\log_2(|\mathcal{A}|+1)}
   \]
   where $E_j$ is the \textbf{entropy} of event types in column $j$:
   \[
@@ -771,100 +740,178 @@
       -P_a \log_2 P_a,                     & \text{otherwise}
     \end{cases}
   \]
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \begin{itemize}
-        \item $P_a$: probability (frequency) of event type $a$ in column $j$
-        \item $G_j$: count of gaps in column $j$ (used in gap entropy term)
-        \item $|\mathcal{A}|$: number of event types (alphabet size)
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.48\textwidth}
-      \begin{block}{Interpretation}
-        \begin{itemize}
-          \item Column all same event $\Rightarrow$ $E_j = 0$, $I_j = 1$
-          \item Column all gaps $\Rightarrow$ $I_j \approx 0$
-          \item Column random mix $\Rightarrow$ $I_j \approx 0$
-        \end{itemize}
-      \end{block}
-    \end{column}
-  \end{columns}
+  \begin{itemize}
+    \item $P_a$: probability (frequency) of event type $a$ in column $j$
+    \item $G_j$: count of gaps in column $j$ (used in gap entropy term)
+    \item $|\mathcal{A}|$: number of event types (alphabet size)
+    \item Column all same event: $I_j = 1$
+    \item Column all gaps or random mix: $I_j \approx 0$
+  \end{itemize}
 \end{frame}
 
 %%------------------------------------------------------------
-\begin{frame}[shrink=5]{Simplify: merging low-information columns}
+\begin{frame}{Simplify: merging low-information columns}
+  \textbf{Rule}: merge columns $j$ and $j{+}1$ if \emph{both} $I_j < I_\tau$ and $I_{j+1} < I_\tau$.\\[0.2cm]
+  \textbf{How merging works}:
+  \begin{itemize}
+    \item Concatenate characters $\lambda_{i,j}$ and $\lambda_{i,j+1}$ for each row $i$
+    \item The merged element becomes a \emph{sub-sequence}
+    \item Repeat until no two adjacent columns are both below $I_\tau$
+  \end{itemize}
+  \textbf{Result}: simplified cluster representation $\alpha$ of length $M' \leq M$; increasing $I_\tau$ $\to$ more merging $\to$ coarser view.\\[0.2cm]
+  \textbf{NB!}: This is visible representation, all original $\lambda$ remain the same.
+  \begin{center}
+  \begin{tikzpicture}[
+    sbase/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
+                  font=\scriptsize\ttfamily,rounded corners=1pt},
+    sA/.style={sbase,fill=blue!30},
+    sB/.style={sbase,fill=green!35},
+    sC/.style={sbase,fill=orange!35},
+    sG/.style={sbase,fill=gray!15,text=gray!55},
+    sAB/.style={draw,minimum width=1.46cm,minimum height=0.5cm,
+                font=\scriptsize\ttfamily,fill=cyan!20,rounded corners=1pt},
+    >=Stealth
+  ]
+    % scores
+    \node[draw,fill=red!25,minimum width=0.72cm,minimum height=0.38cm,
+          font=\tiny,rounded corners=1pt] at (0,   3.0) {0.1};
+    \node[draw,fill=red!25,minimum width=0.72cm,minimum height=0.38cm,
+          font=\tiny,rounded corners=1pt] at (0.74,3.0) {0.1};
+    \node[draw,fill=green!30,minimum width=0.72cm,minimum height=0.38cm,
+          font=\tiny,rounded corners=1pt] at (1.48,3.0) {1.0};
+    \node[font=\tiny,left] at (-0.3,3.0) {$I_j$:};
+    \draw[accentred,dashed] (-0.2,2.82) -- (2.3,2.82)
+      node[right,font=\tiny,accentred] {$I_\tau{=}0.5$};
+
+    % lambda (before)
+    \node[sA] at (0,   2.2) {A};
+    \node[sB] at (0.74,2.2) {B};
+    \node[sC] at (1.48,2.2) {C};
+
+    \node[sA] at (0,   1.6) {A};
+    \node[sG] at (0.74,1.6) {-};
+    \node[sC] at (1.48,1.6) {C};
+
+    \node[sG] at (0,   1.0) {-};
+    \node[sB] at (0.74,1.0) {B};
+    \node[sC] at (1.48,1.0) {C};
+
+    \node[font=\tiny,gray] at (0.74,0.6) {$\lambda$ (before)};
+
+    % arrow
+    \draw[->,thick,accentred] (2.4,1.6) -- (3.1,1.6);
+
+    % alpha (after)
+    \node[sAB] at (3.85,2.2) {AB};
+    \node[sC]  at (4.97,2.2) {C};
+
+    \node[sAB] at (3.85,1.6) {A};
+    \node[sC]  at (4.97,1.6) {C};
+
+    \node[sAB] at (3.85,1.0) {B};
+    \node[sC]  at (4.97,1.0) {C};
+
+    \node[font=\tiny,gray] at (4.4,0.6) {$\alpha$ (after)};
+    \node[font=\tiny,accentred,align=center] at (3.85,3.0) {merged};
+  \end{tikzpicture}
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Full pipeline illustration (from paper)}
+  \begin{center}
+    \includegraphics[page=5,clip,trim=10mm 158mm 10mm 17mm,width=0.92\textwidth]{img/sequen_c.pdf}
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Aggregate tree illustration (from paper)}
+  \begin{center}
+    \includegraphics[page=4,clip,trim=10mm 135mm 10mm 18mm,width=0.75\textwidth]{img/sequen_c.pdf}
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+% \begin{frame}[shrink=5]{Sequen-C: system overview}
+%   \begin{center}
+%     \includegraphics[page=7,clip,trim=10mm 118mm 10mm 10mm,width=0.95\textwidth]{img/sequen_c.pdf}
+%   \end{center}
+%   {\footnotesize Fig.~4: Sequen-C for the CURed dataset. (A) Multilevel cluster overview — cluster C5 selected. (B) Unique sequence view for C5. (C) Individual sequence view for unique sequence S9. (D) Attribute analysis view. (E) Available controls.}
+% \end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{Case study: CURed — dataset}
   \begin{columns}[T]
-    \begin{column}{0.52\textwidth}
-      \textbf{Rule}: merge columns $j$ and $j{+}1$ if \emph{both} $I_j < I_\tau$ and $I_{j+1} < I_\tau$.\\[0.2cm]
-      \textbf{How merging works}:
-      \begin{itemize}
-        \item Concatenate characters $\lambda_{i,j}$ and $\lambda_{i,j+1}$ for each row $i$
-        \item The merged element becomes a \emph{sub-sequence}
-        \item Repeat until no two adjacent columns are both below $I_\tau$
-      \end{itemize}
-      \vspace{0.2cm}
-      \textbf{Result}: simplified cluster representation $\alpha$
-      \begin{itemize}
-        \item Length $M' \leq M$
-        \item Each element: single event \emph{or} merged sub-sequence
-        \item Increasing $I_\tau$ $\to$ more merging $\to$ coarser view
-      \end{itemize}
+    \begin{column}{0.42\textwidth}
+      \textbf{Dataset}: CURed (Centre for Urgent \& Emergency Care Research)\\[0.12cm]
+      Emergency service calls to \textbf{999/111} across Yorkshire \& the Humber, UK.\\
+      Three-month subset: \textbf{21,805 unique patients}, 25,243 calls, 57 data attributes.\\[0.18cm]
+      \begin{tabular}{ll}
+        \toprule
+        Unique sequences   & 962  \\
+        Event types        & 11   \\
+        Avg.\ seq.\ length & 22.7 \\
+        Max seq.\ length   & 177  \\
+        \bottomrule
+      \end{tabular}\\[0.18cm]
+      Each sequence = all events of \emph{all} calls \& incidents for one patient.
     \end{column}
-    \begin{column}{0.45\textwidth}
-      \vspace{0.2cm}
+    \begin{column}{0.55\textwidth}
+      \textbf{11 event types} — stages of the emergency care pathway:
+      \vspace{0.15cm}
       \begin{center}
       \begin{tikzpicture}[
-        sbase/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
-                      font=\scriptsize\ttfamily,rounded corners=1pt},
-        sA/.style={sbase,fill=blue!30},
-        sB/.style={sbase,fill=green!35},
-        sC/.style={sbase,fill=orange!35},
-        sG/.style={sbase,fill=gray!15,text=gray!55},
-        sAB/.style={draw,minimum width=1.46cm,minimum height=0.5cm,
-                    font=\scriptsize\ttfamily,fill=cyan!20,rounded corners=1pt},
+        ev/.style={draw,rounded corners=2pt,fill=blue!12,
+                   minimum width=1.15cm,minimum height=0.46cm,
+                   font=\scriptsize\ttfamily,align=center},
+        lbl/.style={font=\tiny,align=center,text width=1.2cm},
+        arr/.style={->,>=Stealth,gray,thick},
         >=Stealth
       ]
-        % scores
-        \node[draw,fill=red!25,minimum width=0.72cm,minimum height=0.38cm,
-              font=\tiny,rounded corners=1pt] at (0,   3.0) {0.1};
-        \node[draw,fill=red!25,minimum width=0.72cm,minimum height=0.38cm,
-              font=\tiny,rounded corners=1pt] at (0.74,3.0) {0.1};
-        \node[draw,fill=green!30,minimum width=0.72cm,minimum height=0.38cm,
-              font=\tiny,rounded corners=1pt] at (1.48,3.0) {1.0};
-        \node[font=\tiny,left] at (-0.1,3.0) {$I_j$:};
-        \draw[accentred,dashed] (-0.2,2.82) -- (2.3,2.82)
-          node[right,font=\tiny,accentred] {$I_\tau{=}0.5$};
+        % Row 1: call dispatch branch
+        \node[ev] (CAL) at (0,   2.2) {CAL};
+        \node[ev] (SCE) at (1.5, 2.2) {SCE};
+        \node[ev] (DEP) at (3.0, 2.2) {DEP};
+        \node[ev] (DES) at (4.5, 2.2) {DES};
+        \draw[arr] (CAL)--(SCE);
+        \draw[arr] (SCE)--(DEP);
+        \draw[arr] (DEP)--(DES);
 
-        % lambda (before)
-        \node[sA] at (0,   2.2) {A};
-        \node[sB] at (0.74,2.2) {B};
-        \node[sC] at (1.48,2.2) {C};
+        \node[lbl] at (0,   1.75) {Call\\received};
+        \node[lbl] at (1.5, 1.75) {Amb.\ at\\scene};
+        \node[lbl] at (3.0, 1.75) {Amb.\ depart.\\scene};
+        \node[lbl] at (4.5, 1.75) {Amb.\ at\\dest.};
 
-        \node[sA] at (0,   1.6) {A};
-        \node[sG] at (0.74,1.6) {-};
-        \node[sC] at (1.48,1.6) {C};
+        % Row 2: hospital branch (continues from DES)
+        \node[ev] (AED) at (0,   0.7) {AED};
+        \node[ev] (TRI) at (1.5, 0.7) {TRI};
+        \node[ev] (SBH) at (3.0, 0.7) {SBH};
+        \node[ev] (END) at (4.5, 0.7) {END};
+        \draw[arr] (DES) -- ++(0,-0.82) -| (AED);
+        \draw[arr] (AED)--(TRI);
+        \draw[arr] (TRI)--(SBH);
+        \draw[arr] (SBH)--(END);
 
-        \node[sG] at (0,   1.0) {-};
-        \node[sB] at (0.74,1.0) {B};
-        \node[sC] at (1.48,1.0) {C};
+        \node[lbl] at (0,   0.22) {Patient\\at ED};
+        \node[lbl] at (1.5, 0.22) {Triage};
+        \node[lbl] at (3.0, 0.22) {Seen by\\health prof.};
+        \node[lbl] at (4.5, 0.22) {Treatment\\ended};
 
-        \node[font=\tiny,gray] at (0.74,0.6) {$\lambda$ (before)};
+        % LED at end of hospital chain
+        \node[ev] (LED) at (6.0, 0.7) {LED};
+        \draw[arr] (END)--(LED);
+        \node[lbl] at (6.0, 0.22) {Patient\\left ED};
 
-        % arrow
-        \draw[->,thick,accentred] (2.4,1.6) -- (3.1,1.6);
-
-        % alpha (after)
-        \node[sAB] at (3.85,2.2) {AB};
-        \node[sC]  at (4.97,2.2) {C};
-
-        \node[sAB] at (3.85,1.6) {A};
-        \node[sC]  at (4.97,1.6) {C};
-
-        \node[sAB] at (3.85,1.0) {B};
-        \node[sC]  at (4.97,1.0) {C};
-
-        \node[font=\tiny,gray] at (4.4,0.6) {$\alpha$ (after)};
-        \node[font=\tiny,accentred,align=center] at (3.85,3.0) {merged};
+        % abort branches
+        \node[ev,fill=orange!20] (RSD) at (1.5, 3.35) {RSD};
+        \node[ev,fill=orange!20] (CLO) at (0,   3.35) {CLO};
+        \draw[arr,dashed] (CAL) -- (CLO);
+        \draw[arr,dashed] (SCE) -- (RSD);
+        \draw[arr,dashed] (DES) to[bend right=25] (RSD);
+        \draw[arr,dashed] (TRI) to[bend right=25] (RSD);
+        \draw[arr,dashed] (RSD) -- (CLO);
+        \node[lbl] at (1.5,3.85) {Amb.\ stood\\down};
+        \node[lbl] at (0,  3.85) {Call\\closed};
       \end{tikzpicture}
       \end{center}
     \end{column}
@@ -872,397 +919,17 @@
 \end{frame}
 
 %%------------------------------------------------------------
-\begin{frame}[shrink=5]{Full pipeline illustration (from paper)}
-  \begin{center}
-    \includegraphics[page=5,clip,trim=10mm 118mm 10mm 10mm,width=0.92\textwidth]{img/sequen_c.pdf}
-  \end{center}
-  {\footnotesize Fig.~3: Cluster data representation (top) and visual encoding (right) for $S{=}\{s_1,\ldots,s_6\}$, $I_\tau{=}0.6$.  Changing $I_\tau$ (bottom) transforms the horizontal level-of-detail continuously.}
-\end{frame}
-
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Aggregate tree illustration (from paper)}
-  \begin{center}
-    \includegraphics[page=4,clip,trim=10mm 10mm 10mm 170mm,width=0.95\textwidth]{img/sequen_c.pdf}
-  \end{center}
-  {\footnotesize Fig.~2: (A) Aggregate tree for $S{=}\{s_1,\ldots,s_6\}$.  (B) Each node stores alignment $\lambda$, row probabilities $P$, and column information scores $I$.  Columns with $I_j < 0.8$ are not coloured.  (C) Multilevel overviews at different $k$.}
-\end{frame}
-
-%%============================================================
-\sectionframe{Finding the Optimal Number of Clusters}
-
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Average silhouette width}
-  \textbf{Goal}: automatically suggest a good number of clusters $k$ to the user.\\[0.2cm]
-  For each sequence $s$ in cluster $C_s$, define the \textbf{silhouette value}:
-  \[
-    z(s) = \frac{v(s) - u(s)}{\max\bigl(u(s),\, v(s)\bigr)}, \qquad z(s) \in [-1,\, 1]
-  \]
-  \begin{columns}[T]
-    \begin{column}{0.50\textwidth}
-      \begin{itemize}
-        \item $u(s)$: mean distance from $s$ to other sequences in the \emph{same} cluster $C_s$
-        \item $v(s)$: mean distance from $s$ to sequences in the \emph{nearest other} cluster
-        \item $z(s) \approx +1$: $s$ is well-placed (compact, separated)
-        \item $z(s) \approx -1$: $s$ would fit better in another cluster
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.47\textwidth}
-      \textbf{Average silhouette width} for $k$ clusters:
-      \[
-        \bar{z}(k) = \frac{1}{N}\sum_{s \in S} z(s)
-      \]
-      \begin{block}{Strategy}
-        Find the $k$ that \emph{maximises} $\bar{z}(k)$.\\
-        Also report \emph{local maxima} as alternative good clusterings.\\
-        Users can explore all recommended $k$ values interactively.
-      \end{block}
-    \end{column}
-  \end{columns}
-\end{frame}
-
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Sequen-C: system overview}
-  \begin{center}
-    \includegraphics[page=7,clip,trim=10mm 118mm 10mm 10mm,width=0.95\textwidth]{img/sequen_c.pdf}
-  \end{center}
-  {\footnotesize Fig.~4: Sequen-C for the CURed dataset. (A) Multilevel cluster overview — cluster C5 selected. (B) Unique sequence view for C5. (C) Individual sequence view for unique sequence S9. (D) Attribute analysis view. (E) Available controls.}
-\end{frame}
-
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Four coordinated views}
-  \begin{columns}[T]
-    \begin{column}{0.50\textwidth}
-      \textbf{A. Multilevel overview (cluster view)}:
-      \begin{itemize}
-        \item Each cluster shown as a column of coloured event boxes
-        \item Box height $\propto$ number of records in cluster
-        \item Equal consecutive events merged into one box to reduce clutter
-        \item \emph{Cluster slider}: changes $k$ (vertical LoD)
-        \item \emph{Info score slider}: changes $I_\tau$ (horizontal LoD)
-      \end{itemize}
-      \vspace{0.25cm}
-      \textbf{B. Unique sequence view}:
-      \begin{itemize}
-        \item Individual unique sequences within selected cluster
-        \item Sort by frequency or similarity; align by event
-        \item Full detail, no simplification
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.47\textwidth}
-      \textbf{C. Individual sequence view}:
-      \begin{itemize}
-        \item Gantt-chart timeline for a selected unique sequence
-        \item Shows timestamps, event durations, raw attributes
-        \item Detail-on-demand for individual records
-      \end{itemize}
-      \vspace{0.25cm}
-      \textbf{D. Attribute analysis view}:
-      \begin{itemize}
-        \item Stacked bar charts for any data attribute
-        \item Compares selected cluster / sequence vs.\ full dataset
-        \item Three series types: Selected data, Sequence, Cluster
-      \end{itemize}
-      \vspace{0.25cm}
-      \textbf{Filters}: by event type, date range, attribute value
-    \end{column}
-  \end{columns}
-\end{frame}
-
-%%============================================================
-\sectionframe{Case Studies}
-
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Case study 1: CURed — emergency service calls}
-  \begin{columns}[T]
-    \begin{column}{0.60\textwidth}
-      \vspace{0.1cm}
-      \includegraphics[page=8,clip,trim=10mm 108mm 10mm 5mm,width=\textwidth]{img/sequen_c.pdf}
-    \end{column}
-    \begin{column}{0.37\textwidth}
-      \vspace{0.3cm}
-      \textbf{Dataset}: 21,805 patients, calls to 999/111 emergency services, Yorkshire\\[0.2cm]
-      \textbf{4-cluster overview}:
-      \begin{itemize}
-        \item \textbf{C1} (34.9\%): ambulance + emergency department
-        \item \textbf{C2} (24.7\%): ambulance + non-ED hospital
-        \item \textbf{C3} (23.6\%): ambulance arrived, no conveyance
-        \item \textbf{C4} (16.8\%): call closed, no ambulance dispatched
-      \end{itemize}
-      \vspace{0.2cm}
-      Attribute analysis: C4 more frequent in younger patients from area 8C3 — calls that can be resolved without ambulance
-    \end{column}
-  \end{columns}
-\end{frame}
-
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Case study 2: MIMIC-III — atrial fibrillation}
-  \begin{columns}[T]
-    \begin{column}{0.58\textwidth}
-      \vspace{0.1cm}
-      \includegraphics[page=9,clip,trim=10mm 92mm 10mm 5mm,width=\textwidth]{img/sequen_c.pdf}
-    \end{column}
-    \begin{column}{0.39\textwidth}
-      \vspace{0.3cm}
-      \textbf{Dataset}: 1,425 AF patients, 448 event types (admissions + prescriptions)\\[0.2cm]
-      \textbf{Key findings} ($k{=}33$):
-      \begin{itemize}
-        \item Common care units: CSRU, CCU, MICU, SICU
-        \item \textbf{C1}: mostly Metoprolol (rate control)
-        \item \textbf{C5}: mostly Warfarin (anticoagulation)
-        \item C5 average stay: \textbf{11 days} vs.\ 7 days for C1
-      \end{itemize}
-      \vspace{0.2cm}
-      Domain expert feedback: \emph{``can help to better understand clinical workflow data to improve services''}
-    \end{column}
-  \end{columns}
-\end{frame}
-
-%%============================================================
-\sectionframe{Summary}
-
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Key contributions}
-  \begin{columns}[T]
-    \begin{column}{0.55\textwidth}
-      \textbf{What Sequen-C introduced}:
-      \begin{enumerate}
-        \item \textbf{Multilevel overview} technique for event sequences — adjustable in two independent dimensions ($k$ and $I_\tau$)
-        \item \textbf{Align-Score-Simplify}: a novel cluster data representation using MSA + entropy-based information score + iterative column merging
-        \item \textbf{Alternative optimal clusterings} suggested via average silhouette width
-        \item \textbf{Sequen-C system}: four coordinated views for multilevel and detail-on-demand exploration
-      \end{enumerate}
-    \end{column}
-    \begin{column}{0.42\textwidth}
-      \begin{block}{Limitations}
-        \begin{itemize}
-          \item MSA step is $O(nl^2)$: slow for very long sequences ($>500$ input sequences, avg.\ length $>10$)
-          \item Optimal $I_\tau$ value is dataset-dependent
-          \item Large alphabets ($>$20 event types) cause visual clutter
-        \end{itemize}
-      \end{block}
-      \vspace{0.2cm}
-      \begin{block}{Future work}
-        \begin{itemize}
-          \item Event type categorisation to speed up MSA
-          \item Alternative alignment: longest common sub-sequence
-          \item Applications beyond clinical domain
-        \end{itemize}
-      \end{block}
-    \end{column}
-  \end{columns}
-\end{frame}
-
-
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Temporal event sequences}
-    A \textbf{temporal event sequence} is an ordered list of typed events for one entity:
-    \[
-      s = \langle e_1,\, e_2,\, \ldots,\, e_T \rangle, \qquad e_i \in \mathcal{A}
-    \]
-    where $\mathcal{A}$ is a finite \textbf{event type alphabet}.
-    \vspace{0.3cm}
-    \begin{columns}[T]
-      \begin{column}{0.48\textwidth}
-        \textbf{Application domains}:
-        \begin{itemize}
-          \item \textbf{Healthcare}: patient journeys through care\\
-            {\footnotesize\texttt{Admitted $\to$ ED triage $\to$ X-ray $\to$ Discharged}}
-          \item \textbf{Emergency services}: call pathways\\
-            {\footnotesize\texttt{Call $\to$ Ambulance $\to$ Scene $\to$ Hospital}}
-          \item \textbf{Web analytics}: clickstream sessions\\
-            {\footnotesize\texttt{Search $\to$ Product $\to$ Cart $\to$ Checkout}}
-          \item \textbf{Business processes}: workflow logs
-        \end{itemize}
-      \end{column}
-      \begin{column}{0.48\textwidth}
-        \textbf{Key properties}:
-        \begin{itemize}
-          \item Events come from a \emph{discrete} alphabet
-          \item Order matters, but exact timing varies
-          \item Datasets contain \emph{thousands} of sequences
-          \item High variability: few sequences are identical
-          \item Goal: find common and deviating pathways
-        \end{itemize}
-      \end{column}
-    \end{columns}
-  \end{frame}
-  
-  %%------------------------------------------------------------
-  \begin{frame}[shrink=5]{The visual analytics challenge}
-    \begin{columns}[T]
-      \begin{column}{0.54\textwidth}
-        \textbf{Goal}: provide an overview that is \emph{simplified but informative}.\\[0.25cm]
-        \textbf{Problems with existing approaches}:
-        \begin{itemize}
-          \item Fixed level of detail — cannot adjust granularity
-          \item Require repeated zooming to see important details
-          \item Patterns visible at one scale are invisible at another
-          \item No support for exploring \emph{alternative} clusterings
-        \end{itemize}
-        \vspace{0.25cm}
-        \textbf{Two independent ``zoom'' axes needed}:
-        \begin{enumerate}
-          \item \textbf{Vertical}: number of sequence clusters $k$
-          \item \textbf{Horizontal}: simplification depth within each cluster
-        \end{enumerate}
-      \end{column}
-      \begin{column}{0.43\textwidth}
-        \begin{block}{Information-seeking mantra}
-          \emph{``Overview first, zoom and filter, then details on demand''} — Shneiderman 1996
-        \end{block}
-        \vspace{0.3cm}
-        {\small
-        Magallanes et al.,\\
-        \textbf{Sequen-C: A Multilevel Overview of Temporal Event Sequences},\\
-        IEEE TVCG, 2021\\[0.2cm]
-        \texttt{arXiv:2108.03043}}
-      \end{column}
-    \end{columns}
-  \end{frame}
-  
-  %%------------------------------------------------------------
-  \begin{frame}[shrink=5]{Sequen-C: teaser}
+\begin{frame}{Case study: CURed -- main clusters overview}
     \begin{center}
-      \includegraphics[page=1,clip,trim=12mm 148mm 12mm 38mm,width=0.95\textwidth]{img/sequen_c.pdf}
+    \includegraphics[height=0.86\textheight]{img/msa_cured_clusters.png}
     \end{center}
-    {\footnotesize Fig.~1 from the paper: the hierarchical aggregation tree (top left) allows changing the number of clusters shown. The vertical level-of-detail changes from coarse ($k{=}1$, bottom left) to fine (middle and bottom right). The Align-Score-Simplify strategy (top right) controls horizontal level-of-detail.}
-  \end{frame}
-  
-  %%------------------------------------------------------------
-  \begin{frame}[shrink=5]{Two dimensions of level-of-detail}
-    \begin{columns}[T]
-      \begin{column}{0.50\textwidth}
-        \vspace{0.2cm}
-        \begin{center}
-        \begin{tikzpicture}[scale=0.88]
-          \draw[->] (0,0) -- (0,4.5) node[above,font=\small] {};
-          \draw[->] (0,0) -- (5.2,0) node[right,font=\small] {};
-  
-          % axis labels
-          \node[font=\small,rotate=90,anchor=south] at (-0.7,2.2) {$k$ (num.\ clusters)};
-          \node[font=\small,anchor=north] at (2.6,-0.35) {$I_\tau$ (information threshold)};
-  
-          % fine/coarse annotations
-          \node[font=\tiny,gray] at (0.5,-0.2) {fine};
-          \node[font=\tiny,gray] at (4.7,-0.2) {coarse};
-          \node[font=\tiny,gray,rotate=90] at (-0.25,0.5) {coarse};
-          \node[font=\tiny,gray,rotate=90] at (-0.25,3.9) {fine};
-  
-          % k=1 row
-          \fill[accentred!70,rounded corners=2pt] (0.2,0.1) rectangle (2.2,0.8);
-          \node[white,font=\tiny] at (1.2,0.45) {1 cluster, detailed};
-          \fill[accentred!35,rounded corners=2pt] (2.4,0.1) rectangle (5.0,0.8);
-          \node[font=\tiny] at (3.7,0.45) {1 cluster, simplified};
-  
-          % k=3 row
-          \fill[blue!40,rounded corners=2pt]        (0.2,1.1) rectangle (1.7,1.9);
-          \fill[green!35!black,rounded corners=2pt] (1.9,1.1) rectangle (3.4,1.9);
-          \fill[orange!50,rounded corners=2pt]      (3.6,1.1) rectangle (5.1,1.9);
-          \node[font=\tiny] at (2.55,1.5) {$k=3$ clusters};
-  
-          % k=6 row
-          \fill[blue!40,rounded corners=2pt]        (0.2,2.2) rectangle (1.0,3.0);
-          \fill[green!35!black,rounded corners=2pt] (1.1,2.2) rectangle (1.9,3.0);
-          \fill[orange!50,rounded corners=2pt]      (2.0,2.2) rectangle (2.8,3.0);
-          \fill[purple!45,rounded corners=2pt]      (2.9,2.2) rectangle (3.7,3.0);
-          \fill[teal!45,rounded corners=2pt]        (3.8,2.2) rectangle (4.6,3.0);
-          \fill[red!40,rounded corners=2pt]         (4.7,2.2) rectangle (5.1,3.0);
-          \node[font=\tiny] at (2.55,2.6) {$k=6$ clusters};
-  
-          % horizontal dashed lines
-          \draw[gray!50,dashed] (-0.0,1.0) -- (5.1,1.0);
-          \draw[gray!50,dashed] (-0.0,2.1) -- (5.1,2.1);
-          \node[font=\tiny,gray,left] at (0,0.45) {$k{=}1$};
-          \node[font=\tiny,gray,left] at (0,1.55) {$k{=}3$};
-          \node[font=\tiny,gray,left] at (0,2.55) {$k{=}6$};
-        \end{tikzpicture}
-        \end{center}
-      \end{column}
-      \begin{column}{0.47\textwidth}
-        \textbf{Vertical} level-of-detail — $k$ (clusters):
-        \begin{itemize}
-          \item $k = 1$: all sequences in one big cluster
-          \item $k = N$: each unique sequence is its own cluster
-          \item Controlled by cutting the \emph{aggregate tree} at height $k$
-        \end{itemize}
-        \vspace{0.3cm}
-        \textbf{Horizontal} level-of-detail — $I_\tau \in [0, 1]$:
-        \begin{itemize}
-          \item Controls how much each cluster is \emph{simplified}
-          \item $I_\tau = 0$: show every individual event (maximum detail)
-          \item $I_\tau = 1$: merge everything into sub-sequences (maximum compression)
-          \item Controlled by an \emph{information score} threshold
-        \end{itemize}
-      \end{column}
-    \end{columns}
-  \end{frame}
-  
-  %%============================================================
-  \sectionframe{Building the Aggregate Tree}
-  
-  %%------------------------------------------------------------
-  \begin{frame}[shrink=5]{Aggregate tree: bottom-up hierarchical clustering}
-    \begin{columns}[T]
-      \begin{column}{0.52\textwidth}
-        \textbf{Input}: $N$ unique sequences $S = \{s_1,\ldots,s_N\}$\\[0.2cm]
-        \textbf{Algorithm} (agglomerative):
-        \begin{enumerate}
-          \item Initialize $T$: each $s_i$ is a leaf node
-          \item Compute pairwise distance matrix $d$:\\
-                {\small $d[i,j] = D_{\mathrm{qgram}}(s_i, s_j)$}
-          \item \textbf{Repeat} until $|T| = 1$:
-          \begin{enumerate}[a.]
-            \item Find closest pair $(n_a, n_b) = \operatorname{argmin}_{n_i,n_j} d[n_i, n_j]$
-            \item Create $n_{a,b} = \textbf{aggregate}(n_a, n_b)$ \emph{(Align-Score-Simplify)}
-            \item Update $d$ via average agglomeration
-          \end{enumerate}
-          \item Return tree $T$
-        \end{enumerate}
-        \vspace{0.2cm}
-        \textbf{Distance}: cosine distance of \emph{q-gram profiles}\\
-        {\small (vectors of sub-sequence counts of length $q$; $q{=}1$ groups sequences regardless of event order)}
-      \end{column}
-      \begin{column}{0.45\textwidth}
-        \vspace{0.5cm}
-        \begin{center}
-        \begin{tikzpicture}[
-          scale=0.82,
-          leaf/.style={draw,fill=blue!20,rounded corners=2pt,
-                       minimum width=0.65cm,minimum height=0.45cm,font=\scriptsize},
-          inode/.style={circle,draw=accentred,fill=accentred!25,minimum size=0.5cm,inner sep=0pt},
-          >=Stealth
-        ]
-          \node[leaf] (s1) at (0.0,0) {$s_1$};
-          \node[leaf] (s2) at (1.0,0) {$s_2$};
-          \node[leaf] (s3) at (2.1,0) {$s_3$};
-          \node[leaf] (s4) at (3.1,0) {$s_4$};
-          \node[leaf] (s5) at (4.2,0) {$s_5$};
-          \node[leaf] (s6) at (5.2,0) {$s_6$};
-  
-          \node[inode] (n12)   at (0.5,1.1) {};
-          \draw (s1)--(n12); \draw (s2)--(n12);
-          \node[inode] (n34)   at (2.6,1.1) {};
-          \draw (s3)--(n34); \draw (s4)--(n34);
-          \node[inode] (n56)   at (4.7,1.1) {};
-          \draw (s5)--(n56); \draw (s6)--(n56);
-  
-          \node[inode] (n1234) at (1.6,2.2) {};
-          \draw (n12)--(n1234); \draw (n34)--(n1234);
-  
-          \node[inode] (root)  at (3.1,3.2) {};
-          \draw (n1234)--(root); \draw (n56)--(root);
-  
-          % k-cut lines
-          \draw[dashed,gray!60] (-0.4,1.65) -- (5.8,1.65);
-          \node[font=\tiny,gray,right] at (5.8,1.65) {$k{=}3$};
-          \draw[dashed,gray!60] (-0.4,2.72) -- (5.8,2.72);
-          \node[font=\tiny,gray,right] at (5.8,2.72) {$k{=}2$};
-        \end{tikzpicture}
-        \end{center}
-        \vspace{0.2cm}
-        {\footnotesize Each internal node stores the cluster representation built by Align-Score-Simplify}
-      \end{column}
-    \end{columns}
-  \end{frame}
-  
+\end{frame}
+
+\begin{frame}{Case study: CURed -- cluster C1 overview}
+    \begin{center}
+    \includegraphics[height=0.86\textheight]{img/msa_cured_cluster_c1.png}
+    \end{center}
+\end{frame}
+
+
 \end{document}
