@@ -18,8 +18,8 @@
 
 %%------------------------------------------------------------
 \begin{frame}{MSA: core idea}
-  \textbf{Multiple Sequence Alignment} was developed in bioinformatics to compare DNA / protein sequences.\\[0.1cm]
-  \textbf{Idea}: insert gap characters ``\texttt{-}'' so that similar amino acids appear in the \emph{same column}.\\[0.1cm]
+  \textbf{Multiple Sequence Alignment} was developed in bioinformatics to compare DNA / protein represented as sequences of nucleotides or amino acids.\\[0.1cm]
+  \textbf{Idea}: insert gap characters ``\texttt{-}'' so that similar components appear in the \emph{same column}.\\[0.1cm]
   \textbf{Why}: gaps are associated with evolution changes; the less gaps, the more species are related.
   \vspace{0.2cm}
   \begin{columns}[T]
@@ -384,7 +384,8 @@
 %%------------------------------------------------------------
 \begin{frame}[shrink=5]{From pairwise to multiple: profiles}
   \textbf{Problem}: NW works for 2 sequences. How to align $N > 2$ sequences jointly?\\[0.2cm]
-  \textbf{Key idea}: represent an existing alignment as a \textbf{profile} -- a frequency matrix.
+  \textbf{Straightforward idea}: build N-dimensional function $F = F(i_1, \ldots, i_N)$ that returns the score of the alignment of the subsequences $s_{i_1}, \ldots, s_{i_N}$ This gives $O(M^N)$ complexity.\\[0.2cm]
+  \textbf{Better idea}: represent an existing alignment as a \textbf{profile} -- a frequency matrix.
   \vspace{0.3cm}
 
   A \textbf{profile} $P$ is an $|\mathcal{A}| \times M$ matrix:
@@ -395,8 +396,7 @@
   \[
     s_{\text{profile}}(s^i, P_j) = \sum_{a \in \mathcal{A}} P_{a,j} \cdot s(s^i, a)
   \]
-  Then run NW on the profile as if it were a sequence.\\[0.2cm]
-  {\footnotesize This extends naturally to aligning two profiles (profile--profile alignment).}
+  Then run NW on the profile as if it were a sequence.
 \end{frame}
 
 %%------------------------------------------------------------
@@ -577,7 +577,7 @@
         \item \textbf{Multiple sequences}:
         \begin{itemize}
           \item No profiles: NP-hard
-          \item With profiles: $O(M \log N)$
+          \item With profiles (and guide tree): $O(M^2 N)$
         \end{itemize}
       \end{itemize}
       \vspace{0.25cm}
@@ -585,7 +585,7 @@
     \begin{column}{0.47\textwidth}
       \textbf{Limitations}:
       \begin{itemize}
-        \item \textbf{Greedy}: early merge errors propagate — no backtracking once a column is aligned
+        \item \textbf{Greedy}: early merge errors propagate -- no backtracking once a column is aligned
         \item \textbf{Guide tree sensitivity}: different orderings of merges can produce different final alignments
         \item \textbf{Sub-optimal}: the progressive result is not guaranteed to maximise the total alignment score
       \end{itemize}
@@ -667,7 +667,7 @@
 
 %%------------------------------------------------------------
 \begin{frame}{Progressive MSA: following the aggregate tree}
-  The \textbf{progressive} approach builds alignments bottom-up, following the aggregatetree:
+  The \textbf{progressive} approach builds alignments bottom-up, following the aggregate tree:
   \begin{itemize}
     \item \textbf{Leaf nodes}: alignment $\lambda$ is the sequence itself
     \item \textbf{Internal node} $n_{a,b}$: align the two child alignments $\lambda_a$ and $\lambda_b$
@@ -931,5 +931,23 @@
     \end{center}
 \end{frame}
 
+
+%%------------------------------------------------------------
+\begin{frame}{References}
+  \begin{thebibliography}{9}
+
+    \bibitem{nw1970}
+      S.\,B.~Needleman, C.\,D.~Wunsch.
+      \newblock A general method applicable to the search for similarities in the amino acid sequence of two proteins.
+      \textit{Journal of Molecular Biology}, 48(3):443--453, 1970.
+
+    \bibitem{sequenc}
+      J.~Magallanes, T.~Stone, P.\,D.~Morris, S.~Mason, S.~Wood, M.\,C.~Villa-Uriol.
+      \newblock Sequen-C: A multilevel overview of temporal event sequences.
+      \textit{IEEE Transactions on Visualization and Computer Graphics}, 28(1):492--502, 2022.\\
+      \url{https://arxiv.org/abs/2108.03043}
+
+  \end{thebibliography}
+\end{frame}
 
 \end{document}
