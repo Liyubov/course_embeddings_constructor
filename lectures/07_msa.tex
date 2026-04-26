@@ -1,0 +1,953 @@
+\documentclass[aspectratio=169,t]{beamer}
+
+\input{styles/course}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,decorations.pathreplacing}
+
+\coursetitle{Course: Foundations of AI with Embeddings}
+\title{Lecture 7: Visual Analytics of Event Sequences}
+\subtitle{Multiple Sequence Alignment \enspace$\cdot$\enspace Sequen-C visualisation}
+\author{Liubov B.T., Vladimir Kukushkin}
+\institute{Constructor University}
+\date{2026}
+
+\begin{document}
+\maketitle
+
+%%============================================================
+\sectionframe{Multiple Sequence Alignment (MSA)}
+
+%%------------------------------------------------------------
+\begin{frame}{MSA: core idea}
+  \textbf{Multiple Sequence Alignment} was developed in bioinformatics to compare DNA / protein represented as sequences of nucleotides or amino acids.\\[0.1cm]
+  \textbf{Idea}: insert gap characters ``\texttt{-}'' so that similar components appear in the \emph{same column}.\\[0.1cm]
+  \textbf{Why}: gaps are associated with evolution changes; the less gaps, the more species are related.
+  \vspace{0.2cm}
+  \begin{columns}[T]
+    \begin{column}{0.46\textwidth}
+      \textbf{Input sequences} (raw):
+      \vspace{0.2cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        cbase/.style={draw,minimum width=0.72cm,minimum height=0.52cm,
+                      font=\small\ttfamily,rounded corners=1pt},
+        cA/.style={cbase,fill=blue!30},
+        cB/.style={cbase,fill=green!35},
+        cC/.style={cbase,fill=orange!35}
+      ]
+        \node[cA] at (0,   1.8) {A};
+        \node[cB] at (0.74,1.8) {B};
+        \node[cC] at (1.48,1.8) {C};
+        \node[font=\scriptsize,right] at (2.3,1.8) {$s_1$};
+
+        \node[cA] at (0,   1.1) {A};
+        \node[cC] at (0.74,1.1) {C};
+        \node[font=\scriptsize,right] at (1.56,1.1) {$s_2$};
+
+        \node[cB] at (0,   0.4) {B};
+        \node[cC] at (0.74,0.4) {C};
+        \node[font=\scriptsize,right] at (1.56,0.4) {$s_3$};
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \textbf{After MSA} (gaps ``\texttt{-}'' inserted):
+      \vspace{0.2cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        cbase/.style={draw,minimum width=0.72cm,minimum height=0.52cm,
+                      font=\small\ttfamily,rounded corners=1pt},
+        cA/.style={cbase,fill=blue!30},
+        cB/.style={cbase,fill=green!35},
+        cC/.style={cbase,fill=orange!35},
+        cG/.style={cbase,fill=gray!15,text=gray!55}
+      ]
+        \node[font=\tiny,gray] at (0,   2.5) {col 1};
+        \node[font=\tiny,gray] at (0.74,2.5) {col 2};
+        \node[font=\tiny,gray] at (1.48,2.5) {col 3};
+
+        \node[cA] at (0,   1.8) {A};
+        \node[cB] at (0.74,1.8) {B};
+        \node[cC] at (1.48,1.8) {C};
+        \node[font=\scriptsize,right] at (2.3,1.8) {$s_1$};
+
+        \node[cA] at (0,   1.1) {A};
+        \node[cG] at (0.74,1.1) {-};
+        \node[cC] at (1.48,1.1) {C};
+        \node[font=\scriptsize,right] at (2.3,1.1) {$s_2$};
+
+        \node[cG] at (0,   0.4) {-};
+        \node[cB] at (0.74,0.4) {B};
+        \node[cC] at (1.48,0.4) {C};
+        \node[font=\scriptsize,right] at (2.3,0.4) {$s_3$};
+
+        % Information scores
+        \node[draw,fill=red!20,minimum width=0.72cm,minimum height=0.4cm,
+              font=\tiny,rounded corners=1pt] at (0,-0.35)    {low};
+        \node[draw,fill=red!20,minimum width=0.72cm,minimum height=0.4cm,
+              font=\tiny,rounded corners=1pt] at (0.74,-0.35) {low};
+        \node[draw,fill=green!30,minimum width=0.72cm,minimum height=0.4cm,
+              font=\tiny,rounded corners=1pt] at (1.48,-0.35) {high};
+        \node[font=\tiny,left] at (-0.4,-0.35) {Alignment:};
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{Pairwise alignment: the scoring scheme}
+  \textbf{Goal}: given two sequences, find an alignment (via gap insertion) that maximises the total score.
+  \vspace{0.2cm}
+  \begin{columns}[T]
+    \begin{column}{0.46\textwidth}
+      \textbf{Scoring function} $s(a, b)$:
+      \begin{itemize}
+        \item $s(a, a) = +m$ \quad \emph{match reward}
+        \item $s(a, b) = -x$ \quad \emph{mismatch penalty} ($a \neq b$)
+        \item $s(\cdot, \mathtt{-}) = -g$ \quad \emph{gap penalty}
+      \end{itemize}
+      \vspace{0.2cm}
+      \textbf{Total alignment score} = sum of column-wise scores.\\[0.2cm]
+      \textbf{Task}: find the alignment with the \emph{highest} total score — i.e., maximise the number of matches and minimise gaps/mismatches.
+    \end{column}
+    \begin{column}{0.51\textwidth}
+      \textbf{Example} with $m{=}2,\; x{=}1,\; g{=}1$:\\[0.15cm]
+      \begin{center}
+      \begin{tikzpicture}[
+        mc/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
+                   font=\small\ttfamily,fill=green!20,rounded corners=1pt},
+        mm/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
+                   font=\small\ttfamily,fill=red!15,rounded corners=1pt},
+        gc/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
+                   font=\small\ttfamily,fill=gray!15,text=gray,rounded corners=1pt},
+        nc/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
+                   font=\small\ttfamily,rounded corners=1pt}
+      ]
+        % --- Optimal alignment ---
+        \node[font=\tiny,left,gray] at (-0.1,2.0)  {$s_1$:};
+        \node[mc] at (0,2.0) {A};
+        \node[nc] at (0.74,2.0) {B};
+        \node[mc] at (1.48,2.0) {C};
+        \node[font=\tiny,left,gray] at (-0.1,1.45)  {$s_2$:};
+        \node[mc] at (0,1.45) {A};
+        \node[gc] at (0.74,1.45) {-};
+        \node[mc] at (1.48,1.45) {C};
+        % column scores
+        \node[font=\tiny,accentred] at (0,0.95)    {$+2$};
+        \node[font=\tiny,accentred] at (0.74,0.95) {$-1$};
+        \node[font=\tiny,accentred] at (1.48,0.95) {$+2$};
+        \node[font=\scriptsize,right] at (2.22,1.7) {score $= \mathbf{3}$ \checkmark};
+
+        % --- Alternative (worse) ---
+        \node[font=\tiny,left,gray] at (-0.1,-0.1) {$s_1$:};
+        \node[mc]  at (0,   -0.1) {A};
+        \node[mm]  at (0.74,-0.1) {B};
+        \node[mc]  at (1.48,-0.1) {C};
+        \node[font=\tiny,left,gray] at (-0.1,-0.65) {$s_2$:};
+        \node[mc]  at (0,   -0.65) {A};
+        \node[mm]  at (0.74,-0.65) {C};
+        \node[gc]  at (1.48,-0.65) {-};
+        \node[font=\tiny,accentred] at (0,   -1.1) {$+2$};
+        \node[font=\tiny,accentred] at (0.74,-1.1) {$-1$};
+        \node[font=\tiny,accentred] at (1.48,-1.1) {$-1$};
+        \node[font=\scriptsize,right] at (2.22,-0.37) {score $= 0$};
+
+        % brace / divider
+        \draw[gray!50] (-0.5,0.55) -- (3.7,0.55);
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{Needleman-Wunsch algorithm}
+  \textbf{Needleman-Wunsch} (1970) finds the \emph{globally optimal} pairwise alignment in $O(|s_1| \cdot |s_2|)$ time.\\[0.3cm]
+  \textbf{Recurrence} ($m{=}2,\; x{=}1,\; g{=}1$):
+  \[
+    F[i,j] = \max \begin{cases}
+      F[i{-}1,\,j{-}1] + s(s_1^i,\, s_2^j) & \text{(diagonal)}\\
+      F[i{-}1,\,j] - g                        & \text{(up)}\\
+      F[i,\,j{-}1] - g                        & \text{(left)}
+    \end{cases}
+  \]
+  \textbf{Initialisation}: $F[0,j] = -jg$,\quad $F[i,0] = -ig$\\[0.3cm]
+  Each cell $F[i,j]$ stores the \emph{best score} for aligning the first $i$ characters of $s_1$ with the first $j$ characters of $s_2$.
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{Needleman-Wunsch: filling the DP matrix (example)}
+  $s_1{=}\texttt{ABC},\;\; s_2{=}\texttt{AC}$\quad ($m{=}2,\; x{=}{-1},\; g{=}1$).
+  \vspace{0.3cm}
+
+  \begin{columns}[T]
+
+    %%— Step 1: F[A,A] = 2  (diagonal wins)
+    \begin{column}{0.24\textwidth}
+      \centering\small\textbf{Step 1:}\;$F[A,A]=2$\\[0.1cm]
+      \begin{tikzpicture}[
+        nc/.style={draw=gray!55,minimum width=0.60cm,minimum height=0.46cm,font=\tiny},
+        hc/.style={draw=accentred,fill=accentred!15,minimum width=0.60cm,minimum height=0.46cm,font=\tiny\bfseries},
+        gc/.style={draw=gray!40,fill=gray!15,minimum width=0.60cm,minimum height=0.46cm,font=\tiny},
+        uc/.style={draw=gray!30,fill=white,minimum width=0.60cm,minimum height=0.46cm,font=\tiny}
+      ]
+        \node[gc]at(0,0){}; \node[gc]at(.63,0){$\varepsilon$}; \node[gc]at(1.26,0){A}; \node[gc]at(1.89,0){C};
+        \node[gc]at(0,-.50){$\varepsilon$}; \node[gc]at(0,-1.00){A}; \node[gc]at(0,-1.50){B}; \node[gc]at(0,-2.00){C};
+        \node[nc,draw=blue!60,very thick]at(.63,-.50){0};
+        \node[nc,draw=orange!75!black,very thick]at(1.26,-.50){-1};
+        \node[nc]at(1.89,-.50){-2};
+        \node[nc,draw=green!55!black,very thick]at(.63,-1.00){-1};
+        \node[hc]at(1.26,-1.00){2};
+        \node[uc]at(1.89,-1.00){};
+        \node[nc]at(.63,-1.50){-2}; \node[uc]at(1.26,-1.50){}; \node[uc]at(1.89,-1.50){};
+        \node[nc]at(.63,-2.00){-3}; \node[uc]at(1.26,-2.00){}; \node[uc]at(1.89,-2.00){};
+      \end{tikzpicture}
+      \par\vspace{0.1cm}
+      {\tiny
+        \textcolor{blue!60}{diag}: $0{+}2{=}\mathbf{2}$\;\textcolor{accentred}{$\leftarrow$\,max}\\
+        \textcolor{orange!75!black}{up}: ${-}1{-}1{=}{-}2$\\
+        \textcolor{green!55!black}{left}: ${-}1{-}1{=}{-}2$
+      }
+    \end{column}
+
+    %%— Step 2: F[B,A] = 1  (up wins)
+    \begin{column}{0.24\textwidth}
+      \centering\small\textbf{Step 2:}\;$F[B,A]=1$\\[0.1cm]
+      \begin{tikzpicture}[
+        nc/.style={draw=gray!55,minimum width=0.60cm,minimum height=0.46cm,font=\tiny},
+        hc/.style={draw=accentred,fill=accentred!15,minimum width=0.60cm,minimum height=0.46cm,font=\tiny\bfseries},
+        gc/.style={draw=gray!40,fill=gray!15,minimum width=0.60cm,minimum height=0.46cm,font=\tiny},
+        uc/.style={draw=gray!30,fill=white,minimum width=0.60cm,minimum height=0.46cm,font=\tiny}
+      ]
+        \node[gc]at(0,0){}; \node[gc]at(.63,0){$\varepsilon$}; \node[gc]at(1.26,0){A}; \node[gc]at(1.89,0){C};
+        \node[gc]at(0,-.50){$\varepsilon$}; \node[gc]at(0,-1.00){A}; \node[gc]at(0,-1.50){B}; \node[gc]at(0,-2.00){C};
+        \node[nc]at(.63,-.50){0}; \node[nc]at(1.26,-.50){-1}; \node[nc]at(1.89,-.50){-2};
+        \node[nc,draw=blue!60,very thick]at(.63,-1.00){-1};
+        \node[nc,draw=orange!75!black,very thick]at(1.26,-1.00){2};
+        \node[uc]at(1.89,-1.00){};
+        \node[nc,draw=green!55!black,very thick]at(.63,-1.50){-2};
+        \node[hc]at(1.26,-1.50){1};
+        \node[uc]at(1.89,-1.50){};
+        \node[nc]at(.63,-2.00){-3}; \node[uc]at(1.26,-2.00){}; \node[uc]at(1.89,-2.00){};
+      \end{tikzpicture}
+      \par\vspace{0.1cm}
+      {\tiny
+        \textcolor{blue!60}{diag}: ${-}1{+}({-}1){=}{-}2$\\
+        \textcolor{orange!75!black}{up}: $2{-}1{=}\mathbf{1}$\;\textcolor{accentred}{$\leftarrow$\,max}\\
+        \textcolor{green!55!black}{left}: ${-}2{-}1{=}{-}3$
+      }
+    \end{column}
+
+    %%— Step 3: F[A,C] = 1  (left wins)
+    \begin{column}{0.24\textwidth}
+      \centering\small\textbf{Step 3:}\;$F[A,C]=1$\\[0.1cm]
+      \begin{tikzpicture}[
+        nc/.style={draw=gray!55,minimum width=0.60cm,minimum height=0.46cm,font=\tiny},
+        hc/.style={draw=accentred,fill=accentred!15,minimum width=0.60cm,minimum height=0.46cm,font=\tiny\bfseries},
+        gc/.style={draw=gray!40,fill=gray!15,minimum width=0.60cm,minimum height=0.46cm,font=\tiny},
+        uc/.style={draw=gray!30,fill=white,minimum width=0.60cm,minimum height=0.46cm,font=\tiny}
+      ]
+        \node[gc]at(0,0){}; \node[gc]at(.63,0){$\varepsilon$}; \node[gc]at(1.26,0){A}; \node[gc]at(1.89,0){C};
+        \node[gc]at(0,-.50){$\varepsilon$}; \node[gc]at(0,-1.00){A}; \node[gc]at(0,-1.50){B}; \node[gc]at(0,-2.00){C};
+        \node[nc]at(.63,-.50){0};
+        \node[nc,draw=blue!60,very thick]at(1.26,-.50){-1};
+        \node[nc,draw=orange!75!black,very thick]at(1.89,-.50){-2};
+        \node[nc]at(.63,-1.00){-1};
+        \node[nc,draw=green!55!black,very thick]at(1.26,-1.00){2};
+        \node[hc]at(1.89,-1.00){1};
+        \node[nc]at(.63,-1.50){-2}; \node[nc]at(1.26,-1.50){1}; \node[uc]at(1.89,-1.50){};
+        \node[nc]at(.63,-2.00){-3}; \node[uc]at(1.26,-2.00){}; \node[uc]at(1.89,-2.00){};
+      \end{tikzpicture}
+      \par\vspace{0.1cm}
+      {\tiny
+        \textcolor{blue!60}{diag}: ${-}1{+}({-}1){=}{-}2$\\
+        \textcolor{orange!75!black}{up}: ${-}2{-}1{=}{-}3$\\
+        \textcolor{green!55!black}{left}: $2{-}1{=}\mathbf{1}$\;\textcolor{accentred}{$\leftarrow$\,max}
+      }
+    \end{column}
+
+    %%— Step 6: F[C,C] = 3  (diagonal wins)
+    \begin{column}{0.24\textwidth}
+      \centering\small\textbf{Step 6:}\;$F[C,C]=3$\\[0.1cm]
+      \begin{tikzpicture}[
+        nc/.style={draw=gray!55,minimum width=0.60cm,minimum height=0.46cm,font=\tiny},
+        hc/.style={draw=accentred,fill=accentred!15,minimum width=0.60cm,minimum height=0.46cm,font=\tiny\bfseries},
+        gc/.style={draw=gray!40,fill=gray!15,minimum width=0.60cm,minimum height=0.46cm,font=\tiny}
+      ]
+        \node[gc]at(0,0){}; \node[gc]at(.63,0){$\varepsilon$}; \node[gc]at(1.26,0){A}; \node[gc]at(1.89,0){C};
+        \node[gc]at(0,-.50){$\varepsilon$}; \node[gc]at(0,-1.00){A}; \node[gc]at(0,-1.50){B}; \node[gc]at(0,-2.00){C};
+        \node[nc]at(.63,-.50){0}; \node[nc]at(1.26,-.50){-1}; \node[nc]at(1.89,-.50){-2};
+        \node[nc]at(.63,-1.00){-1}; \node[nc]at(1.26,-1.00){2}; \node[nc]at(1.89,-1.00){1};
+        \node[nc]at(.63,-1.50){-2};
+        \node[nc,draw=blue!60,very thick]at(1.26,-1.50){1};
+        \node[nc,draw=orange!75!black,very thick]at(1.89,-1.50){1};
+        \node[nc]at(.63,-2.00){-3};
+        \node[nc,draw=green!55!black,very thick]at(1.26,-2.00){0};
+        \node[hc]at(1.89,-2.00){3};
+      \end{tikzpicture}
+      \par\vspace{0.1cm}
+      {\tiny
+        \textcolor{blue!60}{diag}: $1{+}2{=}\mathbf{3}$\;\textcolor{accentred}{$\leftarrow$\,max}\\
+        \textcolor{orange!75!black}{up}: $1{-}1{=}0$\\
+        \textcolor{green!55!black}{left}: $0{-}1{=}{-}1$
+      }
+    \end{column}
+
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{Needleman-Wunsch: traceback}
+  \begin{columns}[T]
+    \begin{column}{0.66\textwidth}
+      \textbf{Traceback}: start at $F[|s_1|, |s_2|]$, follow the arrow that produced each cell's value:
+      \begin{itemize}
+        \item \textbf{diagonal $\nwarrow$}: align $s_1^i$ with $s_2^j$ (match or mismatch)
+        \item \textbf{up $\uparrow$}: gap in $s_2$ ($s_1^i$ aligned with ``\texttt{-}'')
+        \item \textbf{left $\leftarrow$}: gap in $s_1$ ($s_2^j$ aligned with ``\texttt{-}'')
+      \end{itemize}
+      \vspace{0.3cm}
+      \textbf{Result for} $s_1 {=} \texttt{ABC}$, $s_2 {=} \texttt{AC}$:
+      \vspace{0.15cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        mc/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
+                   font=\small\ttfamily,fill=green!20,rounded corners=1pt},
+        gc/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
+                   font=\small\ttfamily,fill=gray!15,text=gray,rounded corners=1pt}
+      ]
+        \node[font=\scriptsize,left] at (-0.1,0.6) {$s_1$:};
+        \node[mc] at (0,   0.6) {A};
+        \node[gc] at (0.74,0.6) {B};  % $\leftarrow$ row "B" traced up → gap in s2
+        \node[mc] at (1.48,0.6) {C};
+        \node[font=\scriptsize,left] at (-0.1,0.05) {$s_2$:};
+        \node[mc] at (0,   0.05) {A};
+        \node[gc] at (0.74,0.05) {-};
+        \node[mc] at (1.48,0.05) {C};
+        \node[font=\scriptsize,right] at (2.22,0.33) {score $= 3$};
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+    \begin{column}{0.23\textwidth}
+      \vspace{0.1cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        nc/.style={draw=gray!60,minimum width=0.88cm,minimum height=0.72cm,font=\small},
+        hc/.style={draw=accentred,fill=accentred!15,minimum width=0.88cm,minimum height=0.72cm,
+                   font=\small\bfseries},
+        gc/.style={draw=gray!50,fill=gray!18,minimum width=0.88cm,minimum height=0.72cm,font=\small},
+        >=Stealth
+      ]
+        % headers
+        \node[gc] at (0,   0) {};
+        \node[gc] at (0.9, 0) {$\varepsilon$};
+        \node[gc] at (1.8, 0) {A};
+        \node[gc] at (2.7, 0) {C};
+        \node[gc] at (0,-0.75) {$\varepsilon$};
+        \node[gc] at (0,-1.50) {A};
+        \node[gc] at (0,-2.25) {B};
+        \node[gc] at (0,-3.00) {C};
+
+        % row ε
+        \node[hc] at (0.9,-0.75) {0};
+        \node[nc] at (1.8,-0.75) {-1};
+        \node[nc] at (2.7,-0.75) {-2};
+        % row A
+        \node[nc] at (0.9,-1.50) {-1};
+        \node[hc] at (1.8,-1.50) {2};
+        \node[nc] at (2.7,-1.50) {1};
+        % row B
+        \node[nc] at (0.9,-2.25) {-2};
+        \node[hc] at (1.8,-2.25) {1};
+        \node[nc] at (2.7,-2.25) {1};
+        % row C
+        \node[nc] at (0.9,-3.00) {-3};
+        \node[nc] at (1.8,-3.00) {0};
+        \node[hc] at (2.7,-3.00) {3};
+
+        % traceback arrows (on highlighted path)
+        \draw[->,very thick,accentred!80]
+          (2.7,-3.00) -- (1.8,-2.25)
+          node[midway,left,xshift=0.6cm,yshift=0.1cm,font=\tiny,accentred] {C–C};
+        \draw[->,very thick,accentred!80]
+          (1.8,-2.25) -- (1.8,-1.50)
+          node[midway,right,xshift=-0.1cm,yshift=-0.15cm,font=\tiny,accentred] {B–gap};
+        \draw[->,very thick,accentred!80]
+          (1.8,-1.50) -- (0.9,-0.75)
+          node[midway,left,xshift=0.6cm,yshift=0.1cm,font=\tiny,accentred] {A–A};
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{From pairwise to multiple: profiles}
+  \textbf{Problem}: NW works for 2 sequences. How to align $N > 2$ sequences jointly?\\[0.2cm]
+  \textbf{Straightforward idea}: build N-dimensional function $F = F(i_1, \ldots, i_N)$ that returns the score of the alignment of the subsequences $s_{i_1}, \ldots, s_{i_N}$ This gives $O(M^N)$ complexity.\\[0.2cm]
+  \textbf{Better idea}: represent an existing alignment as a \textbf{profile} -- a frequency matrix.
+  \vspace{0.3cm}
+
+  A \textbf{profile} $P$ is an $|\mathcal{A}| \times M$ matrix:
+  \[
+    P_{a,j} = \text{fraction of event type } a \text{ in column } j
+  \]
+  \textbf{Profile–sequence score}: to align sequence $s$ against profile $P$, replace the scalar score $s(a, b)$ with a weighted average:
+  \[
+    s_{\text{profile}}(s^i, P_j) = \sum_{a \in \mathcal{A}} P_{a,j} \cdot s(s^i, a)
+  \]
+  Then run NW on the profile as if it were a sequence.
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Profile--sequence alignment: worked example}
+  Align $s_3{=}\texttt{BC}$ with the existing alignment of $s_1{=}\texttt{ABC}$ and $s_2{=}\texttt{A{-}C}$.
+  \vspace{0.2cm}
+  \begin{columns}[T]
+    %%— left: profile matrix + score table ————————————
+    \begin{column}{0.50\textwidth}
+      \textbf{Profile} $P$ (symbol frequencies per column):
+      \vspace{0.1cm}
+      \begin{center}
+      {\small\begin{tabular}{c|ccc}
+        & col\,1 & col\,2 & col\,3 \\\hline
+        $A$ & $1$   & $0$            & $0$ \\
+        $B$ & $0$   & $\tfrac{1}{2}$ & $0$ \\
+        $C$ & $0$   & $0$            & $1$ \\
+        $-$ & $0$   & $\tfrac{1}{2}$ & $0$ \\
+      \end{tabular}}
+      \end{center}
+      \vspace{0.2cm}
+      \textbf{Profile--sequence scores} $s_\text{prof}(s_3^i, P_j)$:
+      \vspace{0.05cm}
+      \begin{center}
+      {\small\begin{tabular}{c|ccc}
+        & $P_1$ & $P_2$ & $P_3$ \\\hline
+        $B$ & $-1$ & $+0.5$ & $-1$          \\
+        $C$ & $-1$ & $-1$            & $+2$ \\
+      \end{tabular}}
+      \end{center}
+      \vspace{0.1cm}
+      {\footnotesize e.g. $s_\text{prof}(B,P_2)=\tfrac{1}{2}{\cdot}(+2)+\tfrac{1}{2}{\cdot}(-1)=+0.5$}
+    \end{column}
+    %%— right: NW matrix + result ————————————————————
+    \begin{column}{0.47\textwidth}
+      \textbf{NW matrix} (rows\,$=$\,$s_3$, cols\,$=$\,profile):
+      \vspace{0.05cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        nc/.style={draw=gray!55,minimum width=0.82cm,minimum height=0.56cm,font=\scriptsize},
+        hc/.style={draw=accentred,fill=accentred!15,minimum width=0.82cm,minimum height=0.56cm,
+                   font=\scriptsize\bfseries},
+        gc/.style={draw=gray!40,fill=gray!15,minimum width=0.82cm,minimum height=0.56cm,font=\scriptsize},
+        >=Stealth
+      ]
+        % column headers: ε, P1, P2, P3
+        \node[gc]at(0,0){}; \node[gc]at(.88,0){$\varepsilon$}; \node[gc]at(1.76,0){$P_1$};
+        \node[gc]at(2.64,0){$P_2$}; \node[gc]at(3.52,0){$P_3$};
+        % row headers: ε, B, C
+        \node[gc]at(0,-.62){$\varepsilon$}; \node[gc]at(0,-1.24){B}; \node[gc]at(0,-1.86){C};
+        % row ε — highlighted: (ε,ε) and (ε,P1) are on the traceback path
+        \node[hc]at(.88,-.62){0};  \node[hc]at(1.76,-.62){-1};
+        \node[nc]at(2.64,-.62){-2}; \node[nc]at(3.52,-.62){-3};
+        % row B — highlighted: (B,P2)
+        \node[nc]at(.88,-1.24){-1}; \node[nc]at(1.76,-1.24){-1};
+        \node[hc]at(2.64,-1.24){-0.5}; \node[nc]at(3.52,-1.24){-1.5};
+        % row C — highlighted: (C,P3)
+        \node[nc]at(.88,-1.86){-2}; \node[nc]at(1.76,-1.86){-2};
+        \node[nc]at(2.64,-1.86){-1.5}; \node[hc]at(3.52,-1.86){1.5};
+        % traceback arrows
+        \draw[->,very thick,accentred!80]
+          (3.52,-1.86) -- (2.64,-1.24)
+          node[midway,left,yshift=-0.12cm,font=\tiny,accentred]{};
+        \draw[->,very thick,accentred!80]
+          (2.64,-1.24) -- (1.76,-.62)
+          node[midway,left,yshift=-0.12cm,font=\tiny,accentred]{};
+        \draw[->,very thick,accentred!80]
+          (1.76,-.62) -- (.88,-.62)
+          node[midway,above,font=\tiny,accentred]{};
+      \end{tikzpicture}
+      \end{center}
+      \vspace{0.1cm}
+      \textbf{Result} ($s_3$ gets a gap in column 1):
+      \vspace{0.05cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        cbase/.style={draw,minimum width=0.58cm,minimum height=0.44cm,
+                      font=\small\ttfamily,rounded corners=1pt},
+        cA/.style={cbase,fill=blue!30},
+        cB/.style={cbase,fill=green!35},
+        cC/.style={cbase,fill=orange!35},
+        cG/.style={cbase,fill=gray!15,text=gray!55}
+      ]
+        \node[cA]at(0,.52){A}; \node[cB]at(.62,.52){B}; \node[cC]at(1.24,.52){C};
+        \node[font=\scriptsize,right]at(1.68,.52){$s_1$};
+        \node[cA]at(0,0){A};   \node[cG]at(.62,0){-};   \node[cC]at(1.24,0){C};
+        \node[font=\scriptsize,right]at(1.68,0){$s_2$};
+        \node[cG]at(0,-.52){-}; \node[cB]at(.62,-.52){B}; \node[cC]at(1.24,-.52){C};
+        \node[font=\scriptsize,right]at(1.68,-.52){$s_3$};
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Profile--profile alignment}
+  Similarly, we can align two profiles $P$ and $Q$ using \textbf{profile--profile scores}:
+  \[
+    s_\text{pp}(P_j,\,Q_k) = \sum_{a,\,b\,\in\,\mathcal{A}} P_{a,j}\cdot Q_{b,k}\cdot s(a,b)
+  \]
+  \begin{columns}[T]
+    %%— left: two profiles + score table ————————————————
+    \begin{column}{0.76\textwidth}
+      \begin{columns}[T]
+        \begin{column}{0.53\linewidth}
+          \textbf{Profile P} (alignment of $s_1,s_2,s_3$):\vspace{0.05cm}
+          \begin{center}{\scriptsize
+          \begin{tabular}{c|ccc}
+            & $P_1$ & $P_2$ & $P_3$ \\\hline
+            $A$ & $\tfrac{2}{3}$ & $0$            & $0$ \\
+            $B$ & $0$            & $\tfrac{2}{3}$ & $0$ \\
+            $C$ & $0$            & $0$            & $1$ \\
+            $-$ & $\tfrac{1}{3}$ & $\tfrac{1}{3}$ & $0$ \\
+          \end{tabular}}\end{center}
+        \end{column}
+        \begin{column}{0.43\linewidth}
+          \textbf{Profile Q} ($s_4{=}\texttt{AB}$):\vspace{0.05cm}
+          \begin{center}{\scriptsize
+          \begin{tabular}{c|cc}
+            & $Q_1$ & $Q_2$ \\\hline
+            $A$ & $1$ & $0$ \\
+            $B$ & $0$ & $1$ \\
+            $C$ & $0$ & $0$ \\
+            $-$ & $0$ & $0$ \\
+          \end{tabular}}\end{center}
+        \end{column}
+      \end{columns}
+      \begin{center}
+        \textbf{Scores} $s_\text{pp}(P_j,Q_k)$:
+        {\small
+      \begin{tabular}{c|cc}
+        & $Q_1$ & $Q_2$ \\\hline
+        $P_1$ & $+1$ & $-1$ \\
+        $P_2$ & $-1$          & $+1$ \\
+        $P_3$ & $-1$          & $-1$ \\
+      \end{tabular}}\end{center}
+        {\footnotesize e.g.\ $s_\text{pp}(P_2,Q_2)=\tfrac{2}{3}{\cdot}s(B,B)+\tfrac{1}{3}{\cdot}s({-},B)=1$}
+    \end{column}
+    %%— right: result alignment —————————————————————————
+    \begin{column}{0.2\textwidth}
+      \textbf{Merged alignment}:
+      \begin{center}
+      \begin{tikzpicture}[
+        cbase/.style={draw,minimum width=0.58cm,minimum height=0.44cm,
+                      font=\small\ttfamily,rounded corners=1pt},
+        cA/.style={cbase,fill=blue!30},
+        cB/.style={cbase,fill=green!35},
+        cC/.style={cbase,fill=orange!35},
+        cG/.style={cbase,fill=gray!15,text=gray!55}
+      ]
+        \node[font=\tiny,gray]at(0,2.45){col\,1};
+        \node[font=\tiny,gray]at(.62,2.45){col\,2};
+        \node[font=\tiny,gray]at(1.24,2.45){col\,3};
+
+        \node[cA]at(0,1.95){A}; \node[cB]at(.62,1.95){B}; \node[cC]at(1.24,1.95){C};
+        \node[font=\scriptsize,right]at(1.68,1.95){$s_1$};
+        \node[cA]at(0,1.30){A}; \node[cG]at(.62,1.30){-}; \node[cC]at(1.24,1.30){C};
+        \node[font=\scriptsize,right]at(1.68,1.30){$s_2$};
+        \node[cG]at(0,.65){-};  \node[cB]at(.62,.65){B};  \node[cC]at(1.24,.65){C};
+        \node[font=\scriptsize,right]at(1.68,.65){$s_3$};
+        \node[cA]at(0,0){A};    \node[cB]at(.62,0){B};    \node[cG]at(1.24,0){-};
+        \node[font=\scriptsize,right]at(1.68,0){$s_4$};
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{MSA: key properties}
+  \vspace{0.6cm}
+  \begin{columns}[c]
+    \begin{column}{0.50\textwidth}
+      \textbf{Complexity}:
+      \begin{itemize}
+        \item \textbf{Two sequences}: $O(|s_1| \cdot |s_2|)$ time
+        \item \textbf{Multiple sequences}:
+        \begin{itemize}
+          \item No profiles: NP-hard
+          \item With profiles (and guide tree): $O(M^2 N)$
+        \end{itemize}
+      \end{itemize}
+      \vspace{0.25cm}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \textbf{Limitations}:
+      \begin{itemize}
+        \item \textbf{Greedy}: early merge errors propagate -- no backtracking once a column is aligned
+        \item \textbf{Guide tree sensitivity}: different orderings of merges can produce different final alignments
+        \item \textbf{Sub-optimal}: the progressive result is not guaranteed to maximise the total alignment score
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%============================================================
+\sectionframe{Sequen-C: The Visualization System}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{Aggregate tree: hierarchical clustering of sequences}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \textbf{Input}: unique sequences $S = \{s_1,\ldots,s_N\}$\\[0.2cm]
+      \textbf{Goal}: build nested clusters.\\[0.2cm]
+      \textbf{Algorithm} (agglomerative / bottom-up):
+      \begin{enumerate}
+        \item Each $s_i$ starts as its own leaf node
+        \item Compute pairwise distance matrix $d$:
+              \[d[i,j] = D_{\text{qgram}}(s_i,\, s_j)\]
+        \item Repeat until one root remains:
+        \begin{enumerate}[a.]
+          \item Merge the two closest nodes $n_a,\,n_b$
+          \item Update $d$ (average linkage)
+        \end{enumerate}
+      \end{enumerate}
+      \vspace{0.15cm}
+      \textbf{Distance}: cosine distance of \textbf{q-gram profiles} -- vectors of sub-sequence counts of length $q$; with $q{=}1$ order is ignored.
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \vspace{0.3cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        scale=0.85,
+        leaf/.style={draw,fill=blue!20,rounded corners=2pt,
+                     minimum width=0.65cm,minimum height=0.45cm,font=\scriptsize},
+        inode/.style={circle,draw=accentred,fill=accentred!25,
+                      minimum size=0.50cm,inner sep=0pt},
+        >=Stealth
+      ]
+        \node[leaf] (s1) at (0.0, 0) {$s_1$};
+        \node[leaf] (s2) at (1.0, 0) {$s_2$};
+        \node[leaf] (s3) at (2.1, 0) {$s_3$};
+        \node[leaf] (s4) at (3.1, 0) {$s_4$};
+        \node[leaf] (s5) at (4.2, 0) {$s_5$};
+        \node[leaf] (s6) at (5.2, 0) {$s_6$};
+
+        \node[inode] (n12)   at (0.5, 1.1) {};
+        \draw (s1)--(n12); \draw (s2)--(n12);
+
+        \node[inode] (n34)   at (2.6, 1.1) {};
+        \draw (s3)--(n34); \draw (s4)--(n34);
+
+        \node[inode] (n56)   at (4.7, 1.1) {};
+        \draw (s5)--(n56); \draw (s6)--(n56);
+
+        \node[inode] (n1234) at (1.6, 2.2) {};
+        \draw (n12)--(n1234); \draw (n34)--(n1234);
+
+        \node[inode] (root)  at (3.1, 3.3) {};
+        \draw (n1234)--(root); \draw (n56)--(root);
+
+        % k-cut lines
+        \draw[dashed,gray!60] (-0.4,0.65) -- (5.8,0.65);
+        \node[font=\tiny,gray,right] at (5.8,0.65) {$k{=}6$};
+        \draw[dashed,gray!60] (-0.4,1.65) -- (5.8,1.65);
+        \node[font=\tiny,gray,right] at (5.8,1.65) {$k{=}3$};
+        \draw[dashed,gray!60] (-0.4,2.75) -- (5.8,2.75);
+        \node[font=\tiny,gray,right] at (5.8,2.75) {$k{=}2$};
+        \draw[dashed,gray!60] (-0.4,3.72) -- (5.8,3.72);
+        \node[font=\tiny,gray,right] at (5.8,3.72) {$k{=}1$};
+      \end{tikzpicture}
+      \end{center}
+      {\footnotesize Cutting the tree at height $k$ yields exactly $k$ clusters. Each internal node stores the merged cluster representation.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Progressive MSA: following the aggregate tree}
+  The \textbf{progressive} approach builds alignments bottom-up, following the aggregate tree:
+  \begin{itemize}
+    \item \textbf{Leaf nodes}: alignment $\lambda$ is the sequence itself
+    \item \textbf{Internal node} $n_{a,b}$: align the two child alignments $\lambda_a$ and $\lambda_b$
+    \item At each merge: align two \emph{profiles}
+    \item A profile $= N \times M$ matrix $\to$ aligning two profiles adds gaps into both
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Scoring parameters} (scikit-bio):
+  \begin{center}
+  \begin{tabular}{ll}
+    \toprule
+    gap open penalty & $0.8$ \\
+    match score       & $+3$ \\
+    mismatch score    & $-1$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \textbf{Why progressive?} $N-1$ pairwise profile alignments of sequences of length $\leq M$ gives complexity $O(N \cdot M^2)$ vs.\ the exact MSA cost $O(M^N)$.
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{Align $\to$ Score $\to$ Simplify}
+    Each cluster (tree node) is represented by running three steps on its input sequences:
+    \vspace{0.3cm}
+    \begin{columns}[T]
+      \begin{column}{0.30\textwidth}
+        \begin{center}
+        \begin{tikzpicture}[
+          box/.style={draw=accentred,fill=accentred!12,rounded corners=3pt,
+                      minimum width=2.8cm,minimum height=1.0cm,
+                      align=center,font=\small\bfseries}
+        ]
+          \node[box] (A) at (0,0) {\textbf{1. Align}\\{\footnotesize\normalfont MSA $\to$ matrix $\lambda$}};
+          \node[box] (S) at (0,-1.5) {\textbf{2. Score}\\{\footnotesize\normalfont info.\ score $I_j$}};
+          \node[box] (P) at (0,-3.0) {\textbf{3. Simplify}\\{\footnotesize\normalfont merge cols $\to$ $\alpha$}};
+          \draw[->,thick] (A)--(S);
+          \draw[->,thick] (S)--(P);
+        \end{tikzpicture}
+        \end{center}
+      \end{column}
+      \begin{column}{0.66\textwidth}
+        \textbf{Step 1 -- Align}:\\
+        Use progressive MSA to align all sequences in the cluster.\\
+        Result: $N \times M$ matrix $\lambda$ (rows = sequences, columns = aligned positions).\\[0.25cm]
+        \textbf{Step 2 -- Score}:\\
+        For each column $j$ of $\lambda$, compute information score $I_j \in [0,1]$.\\
+        $I_j = 1$: all events in column $j$ are the same \quad (homogeneous)\\
+        $I_j \approx 0$: column $j$ is mostly gaps or random events\\[0.25cm]
+        \textbf{Step 3 -- Simplify}:\\
+        Merge consecutive columns where both $I_j < I_\tau$ and $I_{j+1} < I_\tau$.\\
+        Result: simplified matrix $\alpha$ of length $M' \leq M$.\\
+        The horizontal level-of-detail is controlled by $I_\tau$.
+      \end{column}
+    \end{columns}
+  \end{frame}
+  
+
+
+
+%%------------------------------------------------------------
+\begin{frame}{Score: information score per column}
+  After alignment, measure how \textbf{homogeneous} each column $j$ is:
+  \[
+    I_j = 1 - \frac{E_j}{\log_2(|\mathcal{A}|+1)}
+  \]
+  where $E_j$ is the \textbf{entropy} of event types in column $j$:
+  \[
+    E_j = \sum_{a \,\in\, \mathcal{A}_j \cup \{-\}} \begin{cases}
+      -P_a \log_2\!\bigl(P_a / G_j\bigr), & a = \text{``-''} \\[4pt]
+      -P_a \log_2 P_a,                     & \text{otherwise}
+    \end{cases}
+  \]
+  \begin{itemize}
+    \item $P_a$: probability (frequency) of event type $a$ in column $j$
+    \item $G_j$: count of gaps in column $j$ (used in gap entropy term)
+    \item $|\mathcal{A}|$: number of event types (alphabet size)
+    \item Column all same event: $I_j = 1$
+    \item Column all gaps or random mix: $I_j \approx 0$
+  \end{itemize}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Simplify: merging low-information columns}
+  \textbf{Rule}: merge columns $j$ and $j{+}1$ if \emph{both} $I_j < I_\tau$ and $I_{j+1} < I_\tau$.\\[0.2cm]
+  \textbf{How merging works}:
+  \begin{itemize}
+    \item Concatenate characters $\lambda_{i,j}$ and $\lambda_{i,j+1}$ for each row $i$
+    \item The merged element becomes a \emph{sub-sequence}
+    \item Repeat until no two adjacent columns are both below $I_\tau$
+  \end{itemize}
+  \textbf{Result}: simplified cluster representation $\alpha$ of length $M' \leq M$; increasing $I_\tau$ $\to$ more merging $\to$ coarser view.\\[0.2cm]
+  \textbf{NB!}: This is visible representation, all original $\lambda$ remain the same.
+  \begin{center}
+  \begin{tikzpicture}[
+    sbase/.style={draw,minimum width=0.72cm,minimum height=0.5cm,
+                  font=\scriptsize\ttfamily,rounded corners=1pt},
+    sA/.style={sbase,fill=blue!30},
+    sB/.style={sbase,fill=green!35},
+    sC/.style={sbase,fill=orange!35},
+    sG/.style={sbase,fill=gray!15,text=gray!55},
+    sAB/.style={draw,minimum width=1.46cm,minimum height=0.5cm,
+                font=\scriptsize\ttfamily,fill=cyan!20,rounded corners=1pt},
+    >=Stealth
+  ]
+    % scores
+    \node[draw,fill=red!25,minimum width=0.72cm,minimum height=0.38cm,
+          font=\tiny,rounded corners=1pt] at (0,   3.0) {0.1};
+    \node[draw,fill=red!25,minimum width=0.72cm,minimum height=0.38cm,
+          font=\tiny,rounded corners=1pt] at (0.74,3.0) {0.1};
+    \node[draw,fill=green!30,minimum width=0.72cm,minimum height=0.38cm,
+          font=\tiny,rounded corners=1pt] at (1.48,3.0) {1.0};
+    \node[font=\tiny,left] at (-0.3,3.0) {$I_j$:};
+    \draw[accentred,dashed] (-0.2,2.82) -- (2.3,2.82)
+      node[right,font=\tiny,accentred] {$I_\tau{=}0.5$};
+
+    % lambda (before)
+    \node[sA] at (0,   2.2) {A};
+    \node[sB] at (0.74,2.2) {B};
+    \node[sC] at (1.48,2.2) {C};
+
+    \node[sA] at (0,   1.6) {A};
+    \node[sG] at (0.74,1.6) {-};
+    \node[sC] at (1.48,1.6) {C};
+
+    \node[sG] at (0,   1.0) {-};
+    \node[sB] at (0.74,1.0) {B};
+    \node[sC] at (1.48,1.0) {C};
+
+    \node[font=\tiny,gray] at (0.74,0.6) {$\lambda$ (before)};
+
+    % arrow
+    \draw[->,thick,accentred] (2.4,1.6) -- (3.1,1.6);
+
+    % alpha (after)
+    \node[sAB] at (3.85,2.2) {AB};
+    \node[sC]  at (4.97,2.2) {C};
+
+    \node[sAB] at (3.85,1.6) {A};
+    \node[sC]  at (4.97,1.6) {C};
+
+    \node[sAB] at (3.85,1.0) {B};
+    \node[sC]  at (4.97,1.0) {C};
+
+    \node[font=\tiny,gray] at (4.4,0.6) {$\alpha$ (after)};
+    \node[font=\tiny,accentred,align=center] at (3.85,3.0) {merged};
+  \end{tikzpicture}
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Full pipeline illustration (from paper)}
+  \begin{center}
+    \includegraphics[page=5,clip,trim=10mm 158mm 10mm 17mm,width=0.92\textwidth]{img/sequen_c.pdf}
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Aggregate tree illustration (from paper)}
+  \begin{center}
+    \includegraphics[page=4,clip,trim=10mm 135mm 10mm 18mm,width=0.75\textwidth]{img/sequen_c.pdf}
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+% \begin{frame}[shrink=5]{Sequen-C: system overview}
+%   \begin{center}
+%     \includegraphics[page=7,clip,trim=10mm 118mm 10mm 10mm,width=0.95\textwidth]{img/sequen_c.pdf}
+%   \end{center}
+%   {\footnotesize Fig.~4: Sequen-C for the CURed dataset. (A) Multilevel cluster overview — cluster C5 selected. (B) Unique sequence view for C5. (C) Individual sequence view for unique sequence S9. (D) Attribute analysis view. (E) Available controls.}
+% \end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=5]{Case study: CURed — dataset}
+  \begin{columns}[T]
+    \begin{column}{0.42\textwidth}
+      \textbf{Dataset}: CURed (Centre for Urgent \& Emergency Care Research)\\[0.12cm]
+      Emergency service calls to \textbf{999/111} across Yorkshire \& the Humber, UK.\\
+      Three-month subset: \textbf{21,805 unique patients}, 25,243 calls, 57 data attributes.\\[0.18cm]
+      \begin{tabular}{ll}
+        \toprule
+        Unique sequences   & 962  \\
+        Event types        & 11   \\
+        Avg.\ seq.\ length & 22.7 \\
+        Max seq.\ length   & 177  \\
+        \bottomrule
+      \end{tabular}\\[0.18cm]
+      Each sequence = all events of \emph{all} calls \& incidents for one patient.
+    \end{column}
+    \begin{column}{0.55\textwidth}
+      \textbf{11 event types} — stages of the emergency care pathway:
+      \vspace{0.15cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        ev/.style={draw,rounded corners=2pt,fill=blue!12,
+                   minimum width=1.15cm,minimum height=0.46cm,
+                   font=\scriptsize\ttfamily,align=center},
+        lbl/.style={font=\tiny,align=center,text width=1.2cm},
+        arr/.style={->,>=Stealth,gray,thick},
+        >=Stealth
+      ]
+        % Row 1: call dispatch branch
+        \node[ev] (CAL) at (0,   2.2) {CAL};
+        \node[ev] (SCE) at (1.5, 2.2) {SCE};
+        \node[ev] (DEP) at (3.0, 2.2) {DEP};
+        \node[ev] (DES) at (4.5, 2.2) {DES};
+        \draw[arr] (CAL)--(SCE);
+        \draw[arr] (SCE)--(DEP);
+        \draw[arr] (DEP)--(DES);
+
+        \node[lbl] at (0,   1.75) {Call\\received};
+        \node[lbl] at (1.5, 1.75) {Amb.\ at\\scene};
+        \node[lbl] at (3.0, 1.75) {Amb.\ depart.\\scene};
+        \node[lbl] at (4.5, 1.75) {Amb.\ at\\dest.};
+
+        % Row 2: hospital branch (continues from DES)
+        \node[ev] (AED) at (0,   0.7) {AED};
+        \node[ev] (TRI) at (1.5, 0.7) {TRI};
+        \node[ev] (SBH) at (3.0, 0.7) {SBH};
+        \node[ev] (END) at (4.5, 0.7) {END};
+        \draw[arr] (DES) -- ++(0,-0.82) -| (AED);
+        \draw[arr] (AED)--(TRI);
+        \draw[arr] (TRI)--(SBH);
+        \draw[arr] (SBH)--(END);
+
+        \node[lbl] at (0,   0.22) {Patient\\at ED};
+        \node[lbl] at (1.5, 0.22) {Triage};
+        \node[lbl] at (3.0, 0.22) {Seen by\\health prof.};
+        \node[lbl] at (4.5, 0.22) {Treatment\\ended};
+
+        % LED at end of hospital chain
+        \node[ev] (LED) at (6.0, 0.7) {LED};
+        \draw[arr] (END)--(LED);
+        \node[lbl] at (6.0, 0.22) {Patient\\left ED};
+
+        % abort branches
+        \node[ev,fill=orange!20] (RSD) at (1.5, 3.35) {RSD};
+        \node[ev,fill=orange!20] (CLO) at (0,   3.35) {CLO};
+        \draw[arr,dashed] (CAL) -- (CLO);
+        \draw[arr,dashed] (SCE) -- (RSD);
+        \draw[arr,dashed] (DES) to[bend right=25] (RSD);
+        \draw[arr,dashed] (TRI) to[bend right=25] (RSD);
+        \draw[arr,dashed] (RSD) -- (CLO);
+        \node[lbl] at (1.5,3.85) {Amb.\ stood\\down};
+        \node[lbl] at (0,  3.85) {Call\\closed};
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Case study: CURed -- main clusters overview}
+    \begin{center}
+    \includegraphics[height=0.86\textheight]{img/msa_cured_clusters.png}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Case study: CURed -- cluster C1 overview}
+    \begin{center}
+    \includegraphics[height=0.86\textheight]{img/msa_cured_cluster_c1.png}
+    \end{center}
+\end{frame}
+
+
+%%------------------------------------------------------------
+\begin{frame}{References}
+  \begin{thebibliography}{9}
+
+    \bibitem{nw1970}
+      S.\,B.~Needleman, C.\,D.~Wunsch.
+      \newblock A general method applicable to the search for similarities in the amino acid sequence of two proteins.
+      \textit{Journal of Molecular Biology}, 48(3):443--453, 1970.
+
+    \bibitem{sequenc}
+      J.~Magallanes, T.~Stone, P.\,D.~Morris, S.~Mason, S.~Wood, M.\,C.~Villa-Uriol.
+      \newblock Sequen-C: A multilevel overview of temporal event sequences.
+      \textit{IEEE Transactions on Visualization and Computer Graphics}, 28(1):492--502, 2022.\\
+      \url{https://arxiv.org/abs/2108.03043}
+
+  \end{thebibliography}
+\end{frame}
+
+\end{document}
