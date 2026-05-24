@@ -1,0 +1,654 @@
+\documentclass[aspectratio=169,t]{beamer}
+
+\input{styles/course}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,decorations.pathreplacing}
+
+\coursetitle{Course: Foundations of AI with Embeddings}
+\title{Lecture 9: General-Purpose User Embeddings}
+\subtitle{AutoEncoder-coupled Transformer Network (AETN), KDD 2020}
+\author{Liubov B.T., Vladimir Kukushkin}
+\institute{Constructor University}
+\date{2026}
+
+\begin{document}
+\maketitle
+
+%%------------------------------------------------------------
+\begin{frame}{Why user embeddings from mobile app usage?}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \textbf{Mobile app usage} encodes rich user interests:
+      \begin{itemize}
+        \item \emph{Retention} -- apps currently installed (long-term interest)
+        \item \emph{Installation} -- recently added apps (emerging interests)
+        \item \emph{Uninstallation} -- recently removed apps (changing interests)
+      \end{itemize}
+      \vspace{0.4cm}
+      \textbf{Downstream applications} that benefit:
+      \begin{itemize}
+        \item Feed recommendations
+        \item Look-alike audience extension (advertising)
+        \item Next app install prediction
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \vspace{0.2cm}
+      \begin{block}{Insight example}
+        A user who just installed \emph{Snapseed} and \emph{Instagram} is likely interested in mobile photography -- even if they never said so explicitly.
+      \end{block}
+      \vspace{0.3cm}
+      \textbf{Traditional approach:} handcrafted features per task, requires domain experts, sub-optimal across tasks.\\[0.2cm]
+      \textbf{Goal:} learn \emph{general-purpose} representations automatically.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Three core challenges}
+  \begin{enumerate}
+    \item \textbf{Heterogeneous signals must be modeled collectively}\\
+      Retention, installation, and uninstallation are qualitatively different, yet they jointly describe user preferences. Encoding them separately and concatenating loses cross-signal interactions.
+      \vspace{0.25cm}
+    \item \textbf{Low-frequency \& unevenly distributed over time}\\
+      Most users install/uninstall apps rarely; bursts can happen on any day. Traditional RNNs assume regular sequences and struggle with irregular time gaps.
+      \vspace{0.25cm}
+    \item \textbf{Long-tail app sparsity}\\
+      Popular apps (WeChat, Alipay) are on almost every phone -- they are uninformative. Niche apps reveal true interests but may appear only a few hundred times in tens of millions of users. Standard embeddings fail on such rare items.
+  \end{enumerate}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{AETN: high-level overview}
+  \textbf{AutoEncoder-coupled Transformer Network} -- three parts trained jointly:
+  \vspace{0.3cm}
+  \begin{columns}[T]
+    \begin{column}{0.32\textwidth}
+      \begin{block}{1. Retention Autoencoder}
+        Learns \emph{app embeddings} from co-occurrence in retention data.\\[0.2cm]
+        Encodes the high-dimensional retention vector into a dense representation fed to the transformer.
+      \end{block}
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \begin{block}{2. Transformer Encoder}
+        Takes retention encoding + installation + uninstallation sequences.\\[0.2cm]
+        Compresses everything into a \textbf{bottleneck} -- the user embedding $\tilde{e} \in \mathbb{R}^{128}$.
+      \end{block}
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \begin{block}{3. Transformer Decoder}
+        Reconstructs installation and uninstallation sequences from the user embedding.\\[0.2cm]
+        Forces the bottleneck to retain as much information as possible.
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.4cm}
+  \begin{center}
+    \textbf{Entirely unsupervised.}
+    All three parts share app embeddings and are trained with a multi-objective joint loss.
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{User behavior representation}
+    \textbf{Retention} $x_u \in \{0,1\}^M$ -- \emph{what is installed right now}.
+    Multi-hot vector: $x_{um} = 1$ iff app $m = 1, \ldots, M$ is on the user's $u$ phone.\\[0.2cm]
+    \textbf{Installation sequences} -- \emph{what was recently added}.
+    Two parallel arrays of length $I$ (latest $I$ ops):
+    $\bigl[\,a^n_{u,1},\ldots,a^n_{u,I}\,\bigr]$ -- app IDs,\;
+    $\bigl[\,d^n_{u,1},\ldots,d^n_{u,I}\,\bigr]$ -- dates.\\[0.2cm]
+    \textbf{Uninstallation sequences} -- \emph{what was recently removed}.
+    Same format: app IDs $a^l_{u,i}$ and dates $d^l_{u,i}$.\\[0.2cm]
+    $$S_u = \left\{[a^n_{u,1},\ldots,a^n_{u,I}],[d^n_{u,1},\ldots,d^n_{u,I}],[a^l_{u,1},\ldots,a^l_{u,I}],[d^l_{u,1},\ldots,d^l_{u,I}]\right\}$$
+    \textbf{Preprocessing rules:}
+    \begin{itemize}
+    \item $\leq 10$ ops per user happened in the latest $T$ time intervals
+    \item Drop ubiquitous pre-installed apps (WeChat, Alipay)
+    \item Drop apps pre-installed by manufacturers
+    \item Drop niche apps below a global install threshold
+    \end{itemize}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=10]{Retention Autoencoder}
+    \begin{columns}[T]
+      \begin{column}{0.54\textwidth}
+        \textbf{Purpose:} encode high-dimensional sparse retention vector $x_u \in \{0,1\}^M$ into a dense representation usable by the transformer.
+        \vspace{0.3cm}
+  
+        \textbf{Structure:} 3 hidden layers, $\text{LeakyReLU}$ activation, final layer uses $\text{sigmoid}$:
+        \[
+          x^{(p)} = f^{(p)}\!\bigl(x^{(p-1)}\mathbf{W}^{(p)} + b^{(p)}\bigr), \quad p \in \{1,2,3,4\}
+        \]
+        Input $x^{(0)}$ is $\ell_2$-normalized retention $x_u$.\\[0.3cm]
+        \textbf{Weight tying:} first and last layers share the app embedding matrix $\mathbf{W}^{(1)} = \mathbf{W}^a$:
+        \begin{itemize}
+          \item Reduces free parameters
+          \item Directly learns meaningful app embeddings from co-occurrence
+          \item Speeds up convergence
+        \end{itemize}
+      \end{column}
+      \begin{column}{0.43\textwidth}
+        \vspace{0.4cm}
+        \begin{block}{Two roles of the autoencoder}
+          \textbf{1.} Learns shared \emph{app embeddings} $\mathbf{W}^a$ from co-occurrence in retention.\\[0.3cm]
+          \textbf{2.} Produces $x^{(1)} \in \mathbb{R}^{d_\text{model}}$, a low-dimensional dense encoding of long-term retention, which seeds the transformer encoder and helps compress long-term interests into the bottleneck.
+        \end{block}
+      \end{column}
+    \end{columns}
+  \end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Retention Autoencoder: architecture}
+  \vspace{0.15cm}
+  \begin{center}
+  \begin{tikzpicture}[
+    invec/.style={draw, rounded corners=2pt, minimum width=0.5cm,
+                  minimum height=2.5cm, fill=blue!12},
+    encvec/.style={draw, rounded corners=2pt, minimum width=0.5cm,
+                   minimum height=1.05cm, fill=accentred!22},
+    hiddvec/.style={draw, rounded corners=2pt, minimum width=0.5cm,
+                    minimum height=1.05cm, fill=gray!15},
+    outvec/.style={draw, rounded corners=2pt, minimum width=0.5cm,
+                   minimum height=2.5cm, fill=green!12},
+    arr/.style={->, thick, >=Stealth},
+  ]
+    % State nodes
+    \node[invec]   (x0) at (0.0, 0) {};
+    \node[encvec]  (x1) at (2.0, 0) {};
+    \node[hiddvec] (x2) at (3.8, 0) {};
+    \node[hiddvec] (x3) at (5.6, 0) {};
+    \node[outvec]  (x4) at (7.4, 0) {};
+
+    % Funnel fills (compression / expansion)
+    \begin{pgfonlayer}{background}
+      \filldraw[fill=blue!5, draw=none]
+        (x0.north east) -- (x1.north west) -- (x1.south west) -- (x0.south east) -- cycle;
+      \filldraw[fill=green!5, draw=none]
+        (x3.north east) -- (x4.north west) -- (x4.south west) -- (x3.south east) -- cycle;
+    \end{pgfonlayer}
+
+    % Arrows
+    \draw[arr] (x0.east) -- (x1.west);
+    \draw[arr] (x1.east) -- (x2.west);
+    \draw[arr] (x2.east) -- (x3.west);
+    \draw[arr] (x3.east) -- (x4.west);
+
+    % Weight matrix labels (above arrows)
+    \node[font=\scriptsize, align=center] at (1.0,  0.42) {$\mathbf{W}^{(1)}{=}\mathbf{W}^a$};
+    \node[font=\scriptsize, align=center] at (2.9,  0.42) {$\mathbf{W}^{(2)}$};
+    \node[font=\scriptsize, align=center] at (4.7,  0.42) {$\mathbf{W}^{(3)}$};
+    \node[font=\scriptsize, align=center] at (6.5,  0.42) {$\mathbf{W}^{(4)}{=}(\mathbf{W}^a)^\top$};
+
+    % Activation labels (below arrows)
+    \node[font=\tiny, text=black!60] at (1.0, -0.22) {LeakyReLU};
+    \node[font=\tiny, text=black!60] at (2.9, -0.22) {LeakyReLU};
+    \node[font=\tiny, text=black!60] at (4.7, -0.22) {LeakyReLU};
+    \node[font=\tiny, text=black!60] at (6.5, -0.22) {sigmoid};
+
+    % Dimension labels below nodes
+    \node[font=\scriptsize, align=center, below=0.32cm of x0] {$x^{(0)}$\\$\mathbb{R}^M$};
+    \node[font=\scriptsize, align=center, below=0.32cm of x1] {$x^{(1)}$\\$\mathbb{R}^{512}$};
+    \node[font=\scriptsize, align=center, below=0.32cm of x2] {$x^{(2)}$\\$\mathbb{R}^{512}$};
+    \node[font=\scriptsize, align=center, below=0.32cm of x3] {$x^{(3)}$\\$\mathbb{R}^{512}$};
+    \node[font=\scriptsize, align=center, below=0.32cm of x4] {$x^{(4)}$\\$\mathbb{R}^M$};
+
+    % Input annotation (left)
+    \node[font=\footnotesize, anchor=east, align=right, text width=2.0cm] at (-0.4, 0)
+      {retention\\$x_u\!\in\!\{0,1\}^M$\\\tiny($\ell_2$-norm)};
+
+    % Output loss annotation (right)
+    \node[font=\footnotesize, anchor=west, accentred] at (7.65,  0.35) {$\mathcal{L}_\text{aux}$};
+    \node[font=\tiny,         anchor=west, accentred] at (7.65, -0.05) {reconstruction};
+
+    % Dashed arrow: x^(1) to Transformer Encoder
+    \draw[->, dashed, thick, accentred]
+      (x1.north) -- ++(0, 1.25)
+      node[above, font=\footnotesize, accentred, align=center]
+        {to Transformer\\Encoder};
+
+    % Weight tying brace
+    \draw[decorate, decoration={brace, amplitude=5pt, mirror}, thick]
+      ([yshift=-1.5cm]x0.south) -- ([yshift=-1.5cm]x4.south)
+      node[midway, below=0.2cm, font=\scriptsize]
+        {weight tying:\enspace
+         $\mathbf{W}^{(1)} = (\mathbf{W}^{(4)})^\top$ = $\mathbf{W}^a$};
+  \end{tikzpicture}
+  \end{center}
+\end{frame}
+  
+%%------------------------------------------------------------
+  
+\begin{frame}[shrink=12]{User behavior representation: app embeddings}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \textbf{Problem:} $M \sim 10{,}000$ apps; many long-tail apps appear only~hundreds of times among millions of users. A plain ID-lookup embedding learns nothing for rare apps.\\[0.3cm]
+      \textbf{Solution:} represent each app $m$ as the \emph{sum} of two learned vectors:
+      \[
+        \mathbf{w}_m = \underbrace{\mathbf{w}^a_m}_{\text{app ID row}}
+                     + \underbrace{\mathbf{w}^c_m}_{\text{category row}}
+                     \;\in\; \mathbb{R}^{d_\text{model}}
+      \]
+      \begin{itemize}
+        \item $\mathbf{W}^a \in \mathbb{R}^{M \times d_\text{model}}$ -- app-level lookup (sparse updates)
+        \item $\mathbf{W}^c \in \mathbb{R}^{C \times d_\text{model}}$ -- category-level lookup ($C \ll M$, dense updates)
+      \end{itemize}
+      If app $m$ is rare, $\mathbf{w}^a_m$ is noisy but $\mathbf{w}^c_m$ is well-trained from all apps in the same category.
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \textbf{Weight tying} -- $\mathbf{W}^a$ is \emph{shared} across four locations:
+      \vspace{0.15cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        box/.style={draw, rounded corners=3pt, minimum width=2.8cm,
+                    minimum height=0.55cm, font=\small, align=center},
+        wa/.style={draw, fill=accentred!15, rounded corners=3pt,
+                   minimum width=1.5cm, minimum height=0.48cm, font=\small\bfseries}
+      ]
+        \node[wa] (wa) at (0, 0) {$\mathbf{W}^a$};
+
+        \node[box] (ae)  at (-2.2,  1.3) {Autoencoder\\[-2pt]\scriptsize input layer};
+        \node[box] (enc) at ( 2.2,  1.3) {Transformer\\[-2pt]\scriptsize encoder input};
+        \node[box] (dec) at (-2.2, -1.3) {Transformer\\[-2pt]\scriptsize decoder output};
+        \node[box] (msk) at ( 2.2, -1.3) {Masked app\\[-2pt]\scriptsize prediction head};
+
+        \draw[->, thick] (wa) -- (ae);
+        \draw[->, thick] (wa) -- (enc);
+        \draw[->, thick] (wa) -- (dec);
+        \draw[->, thick] (wa) -- (msk);
+      \end{tikzpicture}
+      \end{center}
+      \vspace{0.1cm}
+      \footnotesize
+      Weight tying: (1) reduces parameters, (2) all gradient flows update \emph{one} matrix so even rare app rows receive gradients from reconstruction and masked prediction losses, (3) semantically links the input and output spaces.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Transformer Encoder: embedding layer}
+  The encoder receives \textbf{three signal types} as a unified sequence of token embeddings:
+  \vspace{0.2cm}
+  Each input token $e_i$ is the \textbf{sum} of three components:
+  \[
+    e_i = \underbrace{\mathbf{w}^a_{m_i} + \mathbf{w}^c_{m_i}}_{\text{app embedding}}
+          + \underbrace{\mathbf{w}^d_{t_i}}_{\text{date embedding}}
+          + \underbrace{\mathbf{w}^{\tau_i}}_{\text{behavior type}}
+  \]
+  \begin{itemize}
+    \item \textbf{App embedding:} app ID + category (shared $\mathbf{W}^a$)
+    \item \textbf{Date embedding} $\mathbf{W}^d \in \mathbb{R}^{T \times d_\text{model}}$: captures \emph{when} the event happened -- crucial for irregular time distributions
+    \item \textbf{Behavior type} $\mathbf{w}^{\tau} \in \{{\mathbf{w}^x, \mathbf{w}^n, \mathbf{w}^l}\}$: distinguishes retention / installation / uninstallation
+  \end{itemize}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Transformer Encoder: input sequence}
+  \begin{columns}[T]
+    \begin{column}{0.44\textwidth}
+      Sequence fed to encoder (left $\to$ right):
+      \vspace{0.3cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        tok/.style={draw,rounded corners=2pt,minimum width=0.88cm,minimum height=0.55cm,font=\scriptsize,align=center},
+        ret/.style={tok,fill=blue!20},
+        ins/.style={tok,fill=green!25},
+        uni/.style={tok,fill=orange!25}
+      ]
+        \node[ret] (r)  at (0,0)    {$e_x$\\[-2pt]\tiny ret.};
+        \node[ins] (n1) at (0.95,0) {$e_{n1}$\\[-2pt]\tiny inst.};
+        \node[ins] (n2) at (1.90,0) {$e_{n2}$\\[-2pt]\tiny inst.};
+        \node[ins] (n3) at (2.85,0) {$e_{n3}$\\[-2pt]\tiny inst.};
+        \node[uni] (l1) at (3.80,0) {$e_{l1}$\\[-2pt]\tiny uni.};
+        \node[uni] (l2) at (4.75,0) {$e_{l2}$\\[-2pt]\tiny uni.};
+        \node[uni] (l3) at (5.70,0) {$e_{l3}$\\[-2pt]\tiny uni.};
+        \draw[->,thick,accentred] (-0.55,0) -- (r);
+      \end{tikzpicture}
+      \end{center}
+      \vspace{0.3cm}
+      \footnotesize The retention token $e_x = x^{(1)}$ comes from the autoencoder. Date embeddings replace positional encodings, making the model robust to irregular time gaps.
+    \end{column}
+    \begin{column}{0.53\textwidth}
+      \vspace{0.1cm}
+      \begin{center}
+        \includegraphics[width=\textwidth]{img/aetn_transformer_encoder.png}
+      \end{center}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Transformer encoder: contextual representations}
+    \textbf{Input:} sequence $[e_1, \ldots, e_n]$,\; each $e_i \in \mathbb{R}^{d_\text{model}}$\\[0.2cm]
+    \textbf{Output:} sequence $[h_1, \ldots, h_n]$, same shape -- each $h_i$ encodes token $i$ \emph{in the context of all other tokens}.\\[0.3cm]
+    A plain embedding $e_i$ always encodes the same thing regardless of what is around it. A \emph{contextualised} $h_i$ adapts e.g.:\\[0.1cm]
+    \begin{itemize}
+    \item Installing a gaming app carries different meaning if the user already has 10 games (likely a gamer) vs.\ none (possibly curious)
+    \item Uninstalling a social app right after installing another social app suggests switching, not exit
+    \item All these interactions are captured \emph{simultaneously}, not chained step by step    
+\end{itemize}
+\vspace{0.35cm}
+How does the transformer compute context? Via \textbf{self-attention}: each token scores every other token by relevance, then blends their information proportionally.\\[0.35cm]
+
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Self-attention: how tokens influence each other}
+    \begin{columns}[T]
+      \begin{column}{0.52\textwidth}
+        For each token $i$, three linear projections into \textbf{query}, \textbf{key}, \textbf{value}:
+        \[
+          q_i = e_i W^Q,\quad k_j = e_j W^K,\quad v_j = e_j W^V
+        \]
+        \textbf{Attention weight} -- how relevant is token $j$ for token $i$?
+        \[
+          \alpha_{ij} = \mathrm{softmax}_j\!\left(\frac{q_i \cdot k_j}{\sqrt{d}}\right)
+        \]
+        \textbf{Output} for token $i$: $h_i = \sum_{j}\,\alpha_{ij}\;v_j$.\\[0.1cm]
+        $h_i$ is a learned weighted average of all value vectors. The model adjusts $W^Q$, $W^K$, $W^V$ so that each token attends to the most informative context.
+      \end{column}
+      \begin{column}{0.44\textwidth}
+        \vspace{0.2cm}
+        Every token can attend to every other\\
+        (\textcolor{accentred}{red} = connections involving $e_x$):
+        \vspace{0.35cm}
+        \begin{center}
+        \begin{tikzpicture}[
+          tok/.style={draw, rounded corners=2pt, minimum width=0.82cm,
+                      minimum height=0.48cm, font=\scriptsize, align=center},
+          ret/.style={tok, fill=blue!20},
+          ins/.style={tok, fill=green!25},
+          uni/.style={tok, fill=orange!25},
+        ]
+          \node[ret] (n0) at (0,0) {$e_x$};
+          \node[ins] (n1) at (1,0) {$e_{n1}$};
+          \node[ins] (n2) at (2,0) {$e_{n2}$};
+          \node[uni] (n3) at (3,0) {$e_{l1}$};
+          \node[uni] (n4) at (4,0) {$e_{l2}$};
+  
+          % e_x connections (red arcs)
+          \draw[accentred!55, thin] (n1.north) arc (0:180:0.5);
+          \draw[accentred!55, thin] (n2.north) arc (0:180:1.0);
+          \draw[accentred!55, thin] (n3.north) arc (0:180:1.5);
+          \draw[accentred!55, thin] (n4.north) arc (0:180:2.0);
+  
+          % Other connections (gray arcs)
+          \draw[gray!45, thin] (n2.north) arc (0:180:0.5);
+          \draw[gray!45, thin] (n3.north) arc (0:180:0.5);
+          \draw[gray!45, thin] (n4.north) arc (0:180:0.5);
+          \draw[gray!35, thin] (n3.north) arc (0:180:1.0);
+          \draw[gray!35, thin] (n4.north) arc (0:180:1.0);
+          \draw[gray!25, thin] (n4.north) arc (0:180:1.5);
+        \end{tikzpicture}
+        \end{center}
+      \end{column}
+    \end{columns}
+  \end{frame}
+  
+%%------------------------------------------------------------
+\begin{frame}{Multi-head attention}
+  \textbf{Multi-head attention} runs $H$ heads \emph{in parallel}, each with its own $W^Q_h, W^K_h, W^V_h \in \mathbb{R}^{d \times d/H}$:
+  \[
+    \mathrm{head}_h = \mathrm{Attention}(E W^Q_h,\; E W^K_h,\; E W^V_h)
+  \]
+  \[
+    \mathrm{MultiHead}(E) = \mathrm{Concat}(\mathrm{head}_1, \ldots, \mathrm{head}_H)\,W^O
+  \]
+  $W^O \in \mathbb{R}^{d \times d}$ mixes across all heads, restoring $\mathbb{R}^{n \times d}$.\\[0.3cm]
+  Heads are architecturally identical -- diversity emerges from random initialisation and independent gradient updates.
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Transformer encoder: structure}
+  \begin{columns}[T]
+    \begin{column}{0.46\textwidth}
+      \vspace{0.3cm}
+      \begin{center}
+      \begin{tikzpicture}[
+        tok/.style={draw, rounded corners=2pt, minimum width=0.82cm,
+                    minimum height=0.48cm, font=\scriptsize, align=center},
+        ret/.style={tok, fill=blue!20},
+        ins/.style={tok, fill=green!25},
+        uni/.style={tok, fill=orange!25},
+        htok/.style={tok, fill=gray!15},
+        arr/.style={->, thick, >=Stealth},
+      ]
+        \node[ret] (i0) at (0,0) {$e_x$};
+        \node[ins] (i1) at (1,0) {$e_{n1}$};
+        \node[ins] (i2) at (2,0) {$e_{n2}$};
+        \node[uni] (i3) at (3,0) {$e_{l1}$};
+        \node[uni] (i4) at (4,0) {$e_{l2}$};
+
+        \draw[rounded corners=4pt, fill=gray!8, draw=gray!50]
+          (-0.5, 0.65) rectangle (4.5, 2.65);
+
+        \fill[gray!55] (0,1.65) circle[radius=2.5pt];
+        \fill[gray!55] (1,1.65) circle[radius=2.5pt];
+        \fill[gray!55] (2,1.65) circle[radius=2.5pt];
+        \fill[gray!55] (3,1.65) circle[radius=2.5pt];
+        \fill[gray!55] (4,1.65) circle[radius=2.5pt];
+        \draw[gray!38,thin] (0,1.65)--(1,1.65); \draw[gray!38,thin] (0,1.65)--(2,1.65);
+        \draw[gray!38,thin] (0,1.65)--(3,1.65); \draw[gray!38,thin] (0,1.65)--(4,1.65);
+        \draw[gray!38,thin] (1,1.65)--(2,1.65); \draw[gray!38,thin] (1,1.65)--(3,1.65);
+        \draw[gray!38,thin] (1,1.65)--(4,1.65); \draw[gray!38,thin] (2,1.65)--(3,1.65);
+        \draw[gray!38,thin] (2,1.65)--(4,1.65); \draw[gray!38,thin] (3,1.65)--(4,1.65);
+        \node[font=\tiny, align=center] at (2,2.35)
+          {Self-Attention + FFN \;$\times L$};
+
+        \node[htok] (o0) at (0,3.3) {$h_x$};
+        \node[htok] (o1) at (1,3.3) {$h_{n1}$};
+        \node[htok] (o2) at (2,3.3) {$h_{n2}$};
+        \node[htok] (o3) at (3,3.3) {$h_{l1}$};
+        \node[htok] (o4) at (4,3.3) {$h_{l2}$};
+
+        \draw[arr] (i0.north)--(0,0.65); \draw[arr] (i1.north)--(1,0.65);
+        \draw[arr] (i2.north)--(2,0.65); \draw[arr] (i3.north)--(3,0.65);
+        \draw[arr] (i4.north)--(4,0.65);
+        \draw[arr] (0,2.65)--(o0.south); \draw[arr] (1,2.65)--(o1.south);
+        \draw[arr] (2,2.65)--(o2.south); \draw[arr] (3,2.65)--(o3.south);
+        \draw[arr] (4,2.65)--(o4.south);
+
+        \node[font=\tiny, text=gray, left=0.05cm of i0] {in};
+        \node[font=\tiny, text=gray, left=0.05cm of o0] {out};
+      \end{tikzpicture}
+      \end{center}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \vspace{0.4cm}
+      Each encoder \textbf{block} (repeated $L=2$ times):
+      \vspace{0.2cm}
+      \begin{enumerate}
+        \item \textbf{Multi-Head Self-Attention} -- every token attends to all others; $H$ parallel heads capture different aspects
+        \item \textbf{Add \& Normalize} -- residual connection + layer norm
+        \item \textbf{Feed-Forward Network} -- two-layer MLP applied independently at each position
+        \item \textbf{Add \& Normalize} -- residual connection + layer norm
+      \end{enumerate}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Bottleneck layer}
+    \textbf{Bottleneck} compresses the encoder's final hidden vector $e_x^\Omega \in \mathbb{R}^{512}$ into the user embedding $\tilde{e} \in \mathbb{R}^{128}$:
+    \begin{itemize}
+      \item Single hidden autoencoder layer: $d_\text{model} = 512 \to d_\text{emb} = 128$
+      \item Activation: $\tanh$
+    \end{itemize}
+    \vspace{0.35cm}
+    \textbf{Retention reconstruction} from the bottleneck — an auxiliary task:
+    \begin{itemize}
+      \item Multi-layer perceptron + sigmoid reconstructs $\hat{x}_u \in [0,1]^M$
+      \item Loss: sigmoid cross-entropy $\mathcal{L}_\text{aux}$
+      \item Forces the 128-dimensional vector to preserve long-term user interests
+    \end{itemize}
+    \vspace{0.35cm}
+    \begin{block}{}
+      $\tilde{e}$ is the final \textbf{user embedding} -- the output of the entire AETN pipeline.
+    \end{block}
+  \end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Transformer Decoder}
+    \begin{columns}[T]
+      \begin{column}{0.50\textwidth}
+        \textbf{Decoder} reconstructs install/uninstall sequences from $\tilde{e}$:
+        \begin{itemize}
+          \item \emph{Non-autoregressive} -- all positions decoded in parallel
+          \item Input queries: date + behavior type embeddings
+        \end{itemize}
+      \end{column}
+      \begin{column}{0.47\textwidth}
+        \vspace{0.1cm}
+        \includegraphics[width=\textwidth]{img/aetn_transormer_decoder.png}
+      \end{column}
+    \end{columns}
+    \vspace{0.2cm}
+    \textbf{Full weight tying} -- four matrices share the same weights $(\mathbf{W}^a)^\top \in \mathbb{R}^{d_\text{model} \times M}$:
+    \vspace{0.1cm}
+
+    {\small
+    \begin{tabular}{ll}
+      $\mathbf{W}^\Omega$ & encoder token embedding (app ID $\to \mathbb{R}^{d_\text{model}}$) \\[2pt]
+      $\mathbf{W}^\Theta$ & encoder output projection (hidden state $\to$ app logit, masked prediction task) \\[2pt]
+      $\mathbf{W}^\Phi$   & decoder output projection (hidden state $\to$ app logit) \\[2pt]
+      $\mathbf{W}^{(1)}$  & retention autoencoder first layer \\
+    \end{tabular}
+    }
+    \[
+      \mathbf{W}^\Omega = \mathbf{W}^\Theta = \mathbf{W}^\Phi = \mathbf{W}^{(1)} = (\mathbf{W}^a)^\top
+    \]
+  \end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{AETN: architecture overview}
+  \begin{center}
+    \includegraphics[height=0.82\textheight]{img/aetn_layout.png}
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Modified multi-head self-attention}
+  \textbf{Motivation:} retention, bottleneck, installation, and uninstallation are \emph{heterogeneous}. Each install/uninstall event is one operation; retention and bottleneck summarize many operations. Standard self-attention treats them equally.
+  \vspace{0.3cm}
+
+  \textbf{Modification:} concatenate the retention (or bottleneck) vector to \emph{every key and value} in each attention head:
+      \vspace{0.15cm}
+      \begin{enumerate}
+        \item In the \textbf{encoder}: retention representation is appended to $K$ and $V$
+        \item In the \textbf{decoder}: user embedding (bottleneck) is appended to $K$ and $V$
+      \end{enumerate}
+      \vspace{0.2cm}
+  \textbf{Effect:} every attention step directly sees the retention/user context, not just through positional proximity.
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=10]{Masked App Prediction}
+  Inspired by BERT's Masked Language Model -- a self-supervised auxiliary task that strengthens encoder representations.
+  \vspace{0.25cm}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \textbf{Procedure:}
+      \begin{enumerate}
+        \item Randomly mask $\sim$15\% of app tokens in the input sequence
+        \item Replace each masked position with:
+          \begin{itemize}
+            \item \texttt{[MASK]} token \hfill(80\%)
+            \item random other app \hfill(10\%)
+            \item original app unchanged \hfill(10\%)
+          \end{itemize}
+        \item Encoder must predict the \emph{original} app at each masked position using the surrounding context
+      \end{enumerate}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \textbf{Prediction head:} softmax over $M$ apps\\
+      using encoder hidden state $h_i$ and output weight $\mathbf{W}^\Theta = (\mathbf{W}^a)^\top$\\[0.3cm]
+      \textbf{Loss:} cross-entropy at masked positions only:
+      \[
+        \mathcal{L}_\text{mask} = -\sum_{i \in \text{masked}} \log p(\text{app}_i \mid \text{context})
+      \]
+      \vspace{0.1cm}
+      \textbf{Why it helps:}
+      \begin{itemize}
+        \item Forces token-level contextual understanding
+        \item Particularly useful for long-tail apps\,--\,identity must be inferred from neighbours
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Multi-objective joint training}
+  Three tasks trained simultaneously with a shared loss $\mathcal{L} = \mathcal{L}_\text{main} + \mathcal{L}_\text{aux} + \mathcal{L}_\text{mask} + \mathcal{L}_\text{reg}$:
+  \vspace{0.2cm}
+  \begin{columns}[T]
+    \begin{column}{0.32\textwidth}
+      \begin{block}{Task 1: Main Reconstruction $\mathcal{L}_\text{main}$}
+        Reconstruct:
+        \begin{itemize}
+          \item retention (from bottleneck via MLP)
+          \item install/uninstall sequences (from decoder)
+        \end{itemize}
+        Loss: sigmoid / softmax cross-entropy.\\[0.1cm]
+        \emph{Indispensable core task.}
+      \end{block}
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \begin{block}{Task 2: Auxiliary Retention $\mathcal{L}_\text{aux}$}
+        Separately reconstruct retention in the autoencoder part.\\[0.3cm]
+        Stabilizes transformer training, improves convergence speed.
+      \end{block}
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \begin{block}{Task 3: Masked App Prediction $\mathcal{L}_\text{mask}$}
+        BERT-style: randomly mask apps in install/uninstall sequences, predict masked app IDs.\\[0.1cm]
+        Acts as data augmentation.
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.3cm}
+  \begin{center}
+    \textbf{Dataset:} 20M users, 500M install/uninstall records (Tencent Mobile Manager, Jul–Dec 2019)
+  \end{center}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}[shrink=1]{AETN: key dimensions}
+    \begin{center}
+    \begin{tabular}{ll}
+      \hline\\[-6pt]
+      \textbf{Component} & \textbf{Dimension} \\[3pt]
+      \hline\\[-4pt]
+      Retention input   & $x_u \in \{0,1\}^{10\,000}$ \\[4pt]
+      Autoencoder encoding  & $x^{(1)} \in \mathbb{R}^{512}$ \\[4pt]
+      Token embedding   & $e_i \in \mathbb{R}^{512}$ \\[4pt]
+      Sequence length   & $n = 1 + 2{\times}10 = 21$ \\[4pt]
+      Encoder input     & $E \in \mathbb{R}^{21 \times 512}$ \\[4pt]
+      Per-head projection ($W^Q_h, W^K_h, W^V_h$) & $\mathbb{R}^{512 \times 64}$ \;($H{=}8$ heads) \\[4pt]
+      Single head output & $\mathbb{R}^{21 \times 64}$ \\[4pt]
+      After concat      & $\mathbb{R}^{21 \times 512}$ \\[4pt]
+      $W^O$             & $\mathbb{R}^{512 \times 512}$ \\[4pt]
+      FFN               & $512 \to 1024 \to 512$ \\[4pt]
+      Encoder blocks    & $L = 2$ \\[4pt]
+      Bottleneck        & $\tilde{e} \in \mathbb{R}^{128}$ \\[4pt]
+    \end{tabular}
+    \end{center}
+  \end{frame}
+
+\begin{frame}{AETN: parameter counts}
+  \begin{center}
+  \begin{tabular}{ll}
+    \hline\\[-6pt]
+    \textbf{Component} & \textbf{Parameter count} \\[3pt]
+    \hline\\[-4pt]
+  App embeddings $W^a$ & $10\,000 \times 512 \approx 5.1\text{M}$ \\[4pt]
+  AE hidden layers ($W^{(2)}, W^{(3)}$) & $2 \times 512^2 \approx 0.5\text{M}$ \\[4pt]
+  Transformer ($L{=}2$ blocks) & $2\times(4{\cdot}512^2 + 2{\cdot}512{\cdot}1024) \approx 4.2\text{M}$ \\[4pt]
+  Bottleneck & $2 \times 512{\times}128 \approx 0.1\text{M}$ \\[4pt]
+  \hline\\[-4pt]
+  \textbf{Total} & $\approx \mathbf{10\text{M}}$ \\[4pt]
+  \hline
+  \end{tabular}
+  \end{center}
+\end{frame}
+  
+
+\end{document}
