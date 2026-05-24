@@ -5,16 +5,13 @@
 
 \coursetitle{Course: Foundations of AI with Embeddings}
 \title{Lecture 9: General-Purpose User Embeddings}
-\subtitle{AutoEncoder-coupled Transformer Network (AETN) \enspace$\cdot$\enspace KDD 2020}
-\author{Vladimir Kukushkin}
+\subtitle{AutoEncoder-coupled Transformer Network (AETN), KDD 2020}
+\author{Liubov B.T., Vladimir Kukushkin}
 \institute{Constructor University}
 \date{2026}
 
 \begin{document}
 \maketitle
-
-%%============================================================
-\sectionframe{Motivation \& Problem}
 
 %%------------------------------------------------------------
 \begin{frame}{Why user embeddings from mobile app usage?}
@@ -22,9 +19,9 @@
     \begin{column}{0.55\textwidth}
       \textbf{Mobile app usage} encodes rich user interests:
       \begin{itemize}
-        \item \emph{Retention} — apps currently installed (long-term interest)
-        \item \emph{Installation} — recently added apps (emerging interests)
-        \item \emph{Uninstallation} — recently removed apps (changing interests)
+        \item \emph{Retention} -- apps currently installed (long-term interest)
+        \item \emph{Installation} -- recently added apps (emerging interests)
+        \item \emph{Uninstallation} -- recently removed apps (changing interests)
       \end{itemize}
       \vspace{0.4cm}
       \textbf{Downstream applications} that benefit:
@@ -36,8 +33,8 @@
     \end{column}
     \begin{column}{0.42\textwidth}
       \vspace{0.2cm}
-      \begin{block}{Key insight}
-        A user who just installed \emph{Snapseed} and \emph{Instagram} is likely interested in mobile photography — even if they never said so explicitly.
+      \begin{block}{Insight example}
+        A user who just installed \emph{Snapseed} and \emph{Instagram} is likely interested in mobile photography -- even if they never said so explicitly.
       \end{block}
       \vspace{0.3cm}
       \textbf{Traditional approach:} handcrafted features per task, requires domain experts, sub-optimal across tasks.\\[0.2cm]
@@ -56,16 +53,13 @@
       Most users install/uninstall apps rarely; bursts can happen on any day. Traditional RNNs assume regular sequences and struggle with irregular time gaps.
       \vspace{0.25cm}
     \item \textbf{Long-tail app sparsity}\\
-      Popular apps (WeChat, Alipay) are on almost every phone — they are uninformative. Niche apps reveal true interests but may appear only a few hundred times in tens of millions of users. Standard embeddings fail on such rare items.
+      Popular apps (WeChat, Alipay) are on almost every phone -- they are uninformative. Niche apps reveal true interests but may appear only a few hundred times in tens of millions of users. Standard embeddings fail on such rare items.
   \end{enumerate}
 \end{frame}
 
-%%============================================================
-\sectionframe{AETN Architecture}
-
 %%------------------------------------------------------------
 \begin{frame}{AETN: high-level overview}
-  \textbf{AutoEncoder-coupled Transformer Network} — three parts trained jointly:
+  \textbf{AutoEncoder-coupled Transformer Network} -- three parts trained jointly:
   \vspace{0.3cm}
   \begin{columns}[T]
     \begin{column}{0.32\textwidth}
@@ -77,7 +71,7 @@
     \begin{column}{0.32\textwidth}
       \begin{block}{2. Transformer Encoder}
         Takes retention encoding + installation + uninstallation sequences.\\[0.2cm]
-        Compresses everything into a \textbf{bottleneck} — the user embedding $\tilde{e} \in \mathbb{R}^{128}$.
+        Compresses everything into a \textbf{bottleneck} -- the user embedding $\tilde{e} \in \mathbb{R}^{128}$.
       \end{block}
     \end{column}
     \begin{column}{0.32\textwidth}
@@ -89,7 +83,7 @@
   \end{columns}
   \vspace{0.4cm}
   \begin{center}
-    \textcolor{accentred}{\textbf{Entirely unsupervised.}}
+    \textbf{Entirely unsupervised.}
     All three parts share app embeddings and are trained with a multi-objective joint loss.
   \end{center}
 \end{frame}
@@ -217,8 +211,7 @@
       ([yshift=-1.5cm]x0.south) -- ([yshift=-1.5cm]x4.south)
       node[midway, below=0.2cm, font=\scriptsize]
         {weight tying:\enspace
-         $\mathbf{W}^{(1)} = \mathbf{W}^a$,\enspace
-         $\mathbf{W}^{(4)} = (\mathbf{W}^a)^\top$};
+         $\mathbf{W}^{(1)} = (\mathbf{W}^{(4)})^\top$ = $\mathbf{W}^a$};
   \end{tikzpicture}
   \end{center}
 \end{frame}
@@ -284,7 +277,7 @@
   \begin{itemize}
     \item \textbf{App embedding:} app ID + category (shared $\mathbf{W}^a$)
     \item \textbf{Date embedding} $\mathbf{W}^d \in \mathbb{R}^{T \times d_\text{model}}$: captures \emph{when} the event happened -- crucial for irregular time distributions
-    \item \textbf{Behavior type} $\mathbf{w}^{\tau} \in \{{\mathbf{w}^n, \mathbf{w}^w, \mathbf{w}^i}\}$: distinguishes retention / installation / uninstallation
+    \item \textbf{Behavior type} $\mathbf{w}^{\tau} \in \{{\mathbf{w}^x, \mathbf{w}^n, \mathbf{w}^l}\}$: distinguishes retention / installation / uninstallation
   \end{itemize}
 \end{frame}
 
@@ -326,7 +319,7 @@
 %%------------------------------------------------------------
 \begin{frame}{Transformer encoder: contextual representations}
     \textbf{Input:} sequence $[e_1, \ldots, e_n]$,\; each $e_i \in \mathbb{R}^{d_\text{model}}$\\[0.2cm]
-    \textbf{Output:} sequence $[h_1, \ldots, h_n]$, same shape — each $h_i$ encodes token $i$ \emph{in the context of all other tokens}.\\[0.3cm]
+    \textbf{Output:} sequence $[h_1, \ldots, h_n]$, same shape -- each $h_i$ encodes token $i$ \emph{in the context of all other tokens}.\\[0.3cm]
     A plain embedding $e_i$ always encodes the same thing regardless of what is around it. A \emph{contextualised} $h_i$ adapts e.g.:\\[0.1cm]
     \begin{itemize}
     \item Installing a gaming app carries different meaning if the user already has 10 games (likely a gamer) vs.\ none (possibly curious)
@@ -461,80 +454,123 @@ How does the transformer compute context? Via \textbf{self-attention}: each toke
     \end{column}
     \begin{column}{0.50\textwidth}
       \vspace{0.4cm}
-      Each encoder \textbf{block} (repeated $L$ times):
+      Each encoder \textbf{block} (repeated $L=2$ times):
       \vspace{0.2cm}
       \begin{enumerate}
-        \item \textbf{Multi-Head Self-Attention} — every token attends to all others; $H$ parallel heads capture different aspects
-        \item \textbf{Add \& Normalize} — residual connection + layer norm
-        \item \textbf{Feed-Forward Network} — two-layer MLP applied independently at each position
-        \item \textbf{Add \& Normalize} — residual connection + layer norm
+        \item \textbf{Multi-Head Self-Attention} -- every token attends to all others; $H$ parallel heads capture different aspects
+        \item \textbf{Add \& Normalize} -- residual connection + layer norm
+        \item \textbf{Feed-Forward Network} -- two-layer MLP applied independently at each position
+        \item \textbf{Add \& Normalize} -- residual connection + layer norm
       \end{enumerate}
-      \vspace{0.3cm}
-      \footnotesize
-      In AETN: $L = 2$ encoder layers, $H = 8$ attention heads, $d_\text{model} = 512$.
     \end{column}
   \end{columns}
+\end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Bottleneck layer}
+    \textbf{Bottleneck} compresses the encoder's final hidden vector $e_x^\Omega \in \mathbb{R}^{512}$ into the user embedding $\tilde{e} \in \mathbb{R}^{128}$:
+    \begin{itemize}
+      \item Single hidden autoencoder layer: $d_\text{model} = 512 \to d_\text{emb} = 128$
+      \item Activation: $\tanh$
+    \end{itemize}
+    \vspace{0.35cm}
+    \textbf{Retention reconstruction} from the bottleneck — an auxiliary task:
+    \begin{itemize}
+      \item Multi-layer perceptron + sigmoid reconstructs $\hat{x}_u \in [0,1]^M$
+      \item Loss: sigmoid cross-entropy $\mathcal{L}_\text{aux}$
+      \item Forces the 128-dimensional vector to preserve long-term user interests
+    \end{itemize}
+    \vspace{0.35cm}
+    \begin{block}{}
+      $\tilde{e}$ is the final \textbf{user embedding} -- the output of the entire AETN pipeline.
+    \end{block}
+  \end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{Transformer Decoder}
+    \begin{columns}[T]
+      \begin{column}{0.50\textwidth}
+        \textbf{Decoder} reconstructs install/uninstall sequences from $\tilde{e}$:
+        \begin{itemize}
+          \item \emph{Non-autoregressive} -- all positions decoded in parallel
+          \item Input queries: date + behavior type embeddings
+        \end{itemize}
+      \end{column}
+      \begin{column}{0.47\textwidth}
+        \vspace{0.1cm}
+        \includegraphics[width=\textwidth]{img/aetn_transormer_decoder.png}
+      \end{column}
+    \end{columns}
+    \vspace{0.2cm}
+    \textbf{Full weight tying} -- four matrices share the same weights $(\mathbf{W}^a)^\top \in \mathbb{R}^{d_\text{model} \times M}$:
+    \vspace{0.1cm}
+
+    {\small
+    \begin{tabular}{ll}
+      $\mathbf{W}^\Omega$ & encoder token embedding (app ID $\to \mathbb{R}^{d_\text{model}}$) \\[2pt]
+      $\mathbf{W}^\Theta$ & encoder output projection (hidden state $\to$ app logit, masked prediction task) \\[2pt]
+      $\mathbf{W}^\Phi$   & decoder output projection (hidden state $\to$ app logit) \\[2pt]
+      $\mathbf{W}^{(1)}$  & retention autoencoder first layer \\
+    \end{tabular}
+    }
+    \[
+      \mathbf{W}^\Omega = \mathbf{W}^\Theta = \mathbf{W}^\Phi = \mathbf{W}^{(1)} = (\mathbf{W}^a)^\top
+    \]
+  \end{frame}
+
+%%------------------------------------------------------------
+\begin{frame}{AETN: architecture overview}
+  \begin{center}
+    \includegraphics[height=0.82\textheight]{img/aetn_layout.png}
+  \end{center}
 \end{frame}
 
 %%------------------------------------------------------------
 \begin{frame}{Modified multi-head self-attention}
   \textbf{Motivation:} retention, bottleneck, installation, and uninstallation are \emph{heterogeneous}. Each install/uninstall event is one operation; retention and bottleneck summarize many operations. Standard self-attention treats them equally.
   \vspace{0.3cm}
-  \begin{columns}[T]
-    \begin{column}{0.54\textwidth}
-      \textbf{Modification:} concatenate the retention (or bottleneck) vector to \emph{every key and value} in each attention head:
+
+  \textbf{Modification:} concatenate the retention (or bottleneck) vector to \emph{every key and value} in each attention head:
       \vspace{0.15cm}
       \begin{enumerate}
         \item In the \textbf{encoder}: retention representation is appended to $K$ and $V$
         \item In the \textbf{decoder}: user embedding (bottleneck) is appended to $K$ and $V$
       \end{enumerate}
       \vspace{0.2cm}
-      Effect: every attention step directly sees the retention/user context, not just through positional proximity.
-    \end{column}
-    \begin{column}{0.42\textwidth}
-      \begin{block}{Why it helps}
-        \begin{itemize}
-          \item Encoder fuses installation/uninstallation with retention more efficiently
-          \item Decoder can reconstruct sequences using both the user embedding and the long-term retention signal
-          \item AUC gain in next-week install prediction: \textbf{+0.0069} vs.\ vanilla transformer
-        \end{itemize}
-      \end{block}
-    \end{column}
-  \end{columns}
+  \textbf{Effect:} every attention step directly sees the retention/user context, not just through positional proximity.
 \end{frame}
 
 %%------------------------------------------------------------
-\begin{frame}{Transformer Decoder \& Bottleneck}
+\begin{frame}[shrink=10]{Masked App Prediction}
+  Inspired by BERT's Masked Language Model -- a self-supervised auxiliary task that strengthens encoder representations.
+  \vspace{0.25cm}
   \begin{columns}[T]
     \begin{column}{0.50\textwidth}
-      \textbf{Bottleneck layer} produces user embedding $\tilde{e} \in \mathbb{R}^{128}$:
-      \begin{itemize}
-        \item Single hidden autoencoder on top of encoder's final hidden state
-        \item Activation: $\tanh$
-        \item Dimension: $d_\text{model} = 512 \to d_\text{emb} = 128$
-      \end{itemize}
-      \vspace{0.3cm}
-      \textbf{Retention reconstruction} from bottleneck:
-      \begin{itemize}
-        \item Multi-layer perceptron + sigmoid
-        \item Loss: sigmoid cross-entropy ($\mathcal{L}_\text{aux}$)
-      \end{itemize}
+      \textbf{Procedure:}
+      \begin{enumerate}
+        \item Randomly mask $\sim$15\% of app tokens in the input sequence
+        \item Replace each masked position with:
+          \begin{itemize}
+            \item \texttt{[MASK]} token \hfill(80\%)
+            \item random other app \hfill(10\%)
+            \item original app unchanged \hfill(10\%)
+          \end{itemize}
+        \item Encoder must predict the \emph{original} app at each masked position using the surrounding context
+      \end{enumerate}
     \end{column}
     \begin{column}{0.47\textwidth}
-      \textbf{Decoder} reconstructs install/uninstall sequences:
+      \textbf{Prediction head:} softmax over $M$ apps\\
+      using encoder hidden state $h_i$ and output weight $\mathbf{W}^\Theta = (\mathbf{W}^a)^\top$\\[0.3cm]
+      \textbf{Loss:} cross-entropy at masked positions only:
+      \[
+        \mathcal{L}_\text{mask} = -\sum_{i \in \text{masked}} \log p(\text{app}_i \mid \text{context})
+      \]
+      \vspace{0.1cm}
+      \textbf{Why it helps:}
       \begin{itemize}
-        \item \emph{Non-autoregressive} (parallel decoding)
-        \item Input queries: date + behavior type embeddings
-        \item Modified attention: bottleneck appended to $K$, $V$
-        \item Output softmax weight $\mathbf{W}^\Phi \in \mathbb{R}^{d_\text{model} \times M}$ shared with encoder (weight tying)
+        \item Forces token-level contextual understanding
+        \item Particularly useful for long-tail apps\,--\,identity must be inferred from neighbours
       \end{itemize}
-      \vspace{0.2cm}
-      \begin{block}{Full weight tying}
-        \[
-          \mathbf{W}^\Omega = \mathbf{W}^\Theta = \mathbf{W}^\Phi = \mathbf{W}^{(1)} = (\mathbf{W}^a)^\top
-        \]
-        Reduces parameters, improves sparsity handling, accelerates convergence.
-      \end{block}
     \end{column}
   \end{columns}
 \end{frame}
@@ -545,7 +581,7 @@ How does the transformer compute context? Via \textbf{self-attention}: each toke
   \vspace{0.2cm}
   \begin{columns}[T]
     \begin{column}{0.32\textwidth}
-      \begin{block}{Task 1 — Main Reconstruction $\mathcal{L}_\text{main}$}
+      \begin{block}{Task 1: Main Reconstruction $\mathcal{L}_\text{main}$}
         Reconstruct:
         \begin{itemize}
           \item retention (from bottleneck via MLP)
@@ -556,17 +592,15 @@ How does the transformer compute context? Via \textbf{self-attention}: each toke
       \end{block}
     \end{column}
     \begin{column}{0.32\textwidth}
-      \begin{block}{Task 2 — Auxiliary Retention $\mathcal{L}_\text{aux}$}
+      \begin{block}{Task 2: Auxiliary Retention $\mathcal{L}_\text{aux}$}
         Separately reconstruct retention in the autoencoder part.\\[0.3cm]
-        Stabilizes transformer training, improves convergence speed.\\[0.1cm]
-        AUC gain in install prediction: \textbf{+0.0023}.
+        Stabilizes transformer training, improves convergence speed.
       \end{block}
     \end{column}
     \begin{column}{0.32\textwidth}
-      \begin{block}{Task 3 — Masked App Prediction $\mathcal{L}_\text{mask}$}
+      \begin{block}{Task 3: Masked App Prediction $\mathcal{L}_\text{mask}$}
         BERT-style: randomly mask apps in install/uninstall sequences, predict masked app IDs.\\[0.1cm]
-        Acts as data augmentation.\\[0.1cm]
-        AUC gain: \textbf{+0.0115} across all install categories.
+        Acts as data augmentation.
       \end{block}
     \end{column}
   \end{columns}
@@ -577,7 +611,7 @@ How does the transformer compute context? Via \textbf{self-attention}: each toke
 \end{frame}
 
 %%------------------------------------------------------------
-\begin{frame}{AETN: key dimensions}
+\begin{frame}[shrink=1]{AETN: key dimensions}
     \begin{center}
     \begin{tabular}{ll}
       \hline\\[-6pt]
@@ -595,122 +629,26 @@ How does the transformer compute context? Via \textbf{self-attention}: each toke
       FFN               & $512 \to 1024 \to 512$ \\[4pt]
       Encoder blocks    & $L = 2$ \\[4pt]
       Bottleneck        & $\tilde{e} \in \mathbb{R}^{128}$ \\[4pt]
-      \hline
     \end{tabular}
     \end{center}
   \end{frame}
-  
-%%============================================================
-\sectionframe{Experiments \& Results}
 
-%%------------------------------------------------------------
-\begin{frame}[shrink=5]{Offline evaluation: three downstream tasks}
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \textbf{Tasks (AUC metric):}
-      \begin{itemize}
-        \item \textbf{T1:} Next-week installation prediction (4 niche app categories)
-        \item \textbf{T2:} Look-alike audience extension (out-of-vocabulary app)
-        \item \textbf{T3:} Feed recommendation (cross-domain, Tencent Wi-Fi Manager)
-      \end{itemize}
-      \vspace{0.3cm}
-      \textbf{Baselines:}
-      \begin{itemize}
-        \item \textbf{DAE} — denoising autoencoder on retention only
-        \item \textbf{AETN w/o $\mathcal{L}_\text{mask}$} — no masked app prediction
-        \item \textbf{AETN w/o $\mathcal{L}_\text{aux}$} — no auxiliary retention task
-        \item \textbf{V-AETN} — vanilla (unmodified) multi-head attention
-        \item \textbf{AETN} — full model
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.50\textwidth}
-      \vspace{0.1cm}
-      {\small
-      \begin{tabular}{lccc}
-        \toprule
-        Model & T1 Avg AUC & T2 AUC & T3 AUC \\
-        \midrule
-        DAE          & 0.7392 & 0.8175 & 0.6358 \\
-        w/o $\mathcal{L}_\text{mask}$ & 0.7908 & 0.8290 & 0.6395 \\
-        w/o $\mathcal{L}_\text{aux}$  & 0.8000 & 0.8301 & 0.6403 \\
-        V-AETN       & 0.7954 & 0.8307 & 0.6401 \\
-        \textbf{AETN} & \textbf{0.8023} & \textbf{0.8309} & \textbf{0.6406} \\
-        \bottomrule
-      \end{tabular}
-      }
-      \vspace{0.3cm}
-      \begin{itemize}
-        \item AETN beats DAE by \textbf{+0.0631 AUC} avg on T1 — significant in industry where 0.1\% matters
-        \item Every ablation degrades quality — all three tasks contribute
-      \end{itemize}
-    \end{column}
-  \end{columns}
-\end{frame}
-
-%%------------------------------------------------------------
-\begin{frame}{Online A/B testing results}
-  \textbf{Production deployment} at Tencent Mobile Manager (Feb 2020, 9 days), split by user ID.\\[0.3cm]
-  \begin{columns}[T]
-    \begin{column}{0.54\textwidth}
-      \begin{center}
-      {\small
-      \begin{tabular}{llcccc}
-        \toprule
-        Tab & Model & UV CTR & PV CTR & Engagement & Clicks \\
-        \midrule
-        Good Morning & +DAE           & +1.26\% & +2.23\% & +2.27\% & +2.11\% \\
-                     & \textbf{+AETN} & \textbf{+2.81\%} & \textbf{+4.79\%} & \textbf{+5.24\%} & \textbf{+3.86\%} \\[0.15cm]
-        Find         & +DAE           & +4.12\% & +2.29\% & +2.82\% & +2.11\% \\
-                     & \textbf{+AETN} & \textbf{+4.15\%} & \textbf{+5.96\%} & \textbf{+8.14\%} & \textbf{+3.23\%} \\
-        \bottomrule
-      \end{tabular}
-      }
-      \end{center}
-    \end{column}
-    \begin{column}{0.43\textwidth}
-      \begin{itemize}
-        \item \textbf{PV CTR} and \textbf{Engagement} improve most — AETN captures short-term interests from install/uninstall that DAE misses
-        \item \textbf{Find} tab gains more: users browse all day (more exposure), making personalization more impactful
-        \item Model trained in $\sim$60 hours on 4 $\times$ Tesla M40 GPUs on tens of millions of users
-      \end{itemize}
-    \end{column}
-  \end{columns}
-  \vspace{0.3cm}
+\begin{frame}{AETN: parameter counts}
   \begin{center}
-    Embeddings updated daily for active users (feature updating strategy — cheaper than full model retraining).
+  \begin{tabular}{ll}
+    \hline\\[-6pt]
+    \textbf{Component} & \textbf{Parameter count} \\[3pt]
+    \hline\\[-4pt]
+  App embeddings $W^a$ & $10\,000 \times 512 \approx 5.1\text{M}$ \\[4pt]
+  AE hidden layers ($W^{(2)}, W^{(3)}$) & $2 \times 512^2 \approx 0.5\text{M}$ \\[4pt]
+  Transformer ($L{=}2$ blocks) & $2\times(4{\cdot}512^2 + 2{\cdot}512{\cdot}1024) \approx 4.2\text{M}$ \\[4pt]
+  Bottleneck & $2 \times 512{\times}128 \approx 0.1\text{M}$ \\[4pt]
+  \hline\\[-4pt]
+  \textbf{Total} & $\approx \mathbf{10\text{M}}$ \\[4pt]
+  \hline
+  \end{tabular}
   \end{center}
 \end{frame}
-
-%%------------------------------------------------------------
-\begin{frame}{Summary}
-  \begin{columns}[T]
-    \begin{column}{0.50\textwidth}
-      \textbf{What AETN does:}
-      \begin{itemize}
-        \item Unsupervised user embeddings from retention + install + uninstall
-        \item Encoder-decoder with information bottleneck ($d=128$)
-        \item Date embeddings handle irregular time distributions
-        \item Shared app embeddings + category IDs handle long-tail sparsity
-        \item Weight tying couples autoencoder and transformer tightly
-        \item Modified self-attention injects retention/user context at every step
-        \item Three-task joint training (reconstruction + auxiliary + masked prediction)
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.47\textwidth}
-      \textbf{Lessons for general embedding design:}
-      \begin{itemize}
-        \item Model heterogeneous signals \emph{together}, not separately
-        \item Use time embeddings instead of position encodings when events are irregular
-        \item Sparsity $\to$ tie embeddings + add coarser-grained features (category)
-        \item BERT-style masking works beyond text: applies to any discrete sequence
-        \item Multi-task training: auxiliary tasks improve both quality and convergence speed
-      \end{itemize}
-      \vspace{0.3cm}
-      \begin{center}
-        \footnotesize Code: \texttt{github.com/Junqi-Zhang/AETN}
-      \end{center}
-    \end{column}
-  \end{columns}
-\end{frame}
+  
 
 \end{document}
