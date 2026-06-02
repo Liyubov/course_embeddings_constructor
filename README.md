@@ -11,7 +11,7 @@ Course at the Constructor University on embeddings: from theory to practice.
 - Lecture 5 (Liubov) UMAP
 - Lecture 6 (Vladimir) Markov model, HMM, Google PageRank
 - Lecture 7 (Vladimir) Visual Analytics of Event Sequences: MSA, Sequen-C (paper review)
-- Lecture 8 (Liubov) Charting mobility patterns in the scientific knowledge landscape (paper review)
+- Lecture 8 (Liubov) Contrastive learning and mobility patterns analysis (paper review)
 - Lecture 9 (Vladimir) General-Purpose User Embeddings: AutoEncoder-coupled Transformer Network (paper review)
 
 # Criteria for projects judgement
