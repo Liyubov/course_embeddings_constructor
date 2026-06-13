@@ -14,7 +14,12 @@ Course at the Constructor University on embeddings: from theory to practice.
 - Lecture 8 (Liubov) Contrastive learning and mobility patterns analysis (paper review)
 - Lecture 9 (Vladimir) General-Purpose User Embeddings: AutoEncoder-coupled Transformer Network (paper review)
 
-# Criteria for projects judgement
+# Final projects repositories 
+
+[Project on the Anna Ryzhenko project][https://github.com/annaryzhenkoo/big_data_analysis]
+
+
+# Criteria for projects 
 
 The criteria for the personal projects:
 - clarity of the results of the method applications to the dataset,
