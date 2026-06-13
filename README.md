@@ -16,8 +16,9 @@ Course at the Constructor University on embeddings: from theory to practice.
 
 # Final projects repositories 
 
-[Project on the Anna Ryzhenko project][https://github.com/annaryzhenkoo/big_data_analysis]
-
+- [Project on the game space analysis by Anna Ryzhenko ][https://github.com/annaryzhenkoo/big_data_analysis]
+- [Project on biological data by Daniil Odesser][https://github.com/DanilaOdesser/Big_Data]
+- [Project from Carlos][https://github.com/Mrcharlezzz/E-Commerce-Store-Customer-Segmentation/]
 
 # Criteria for projects 
 
